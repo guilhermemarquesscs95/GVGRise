@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GVG · Alerta de Cura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0A0E13;
+    --panel:#131A22;
+    --panel-2:#0F151C;
+    --hairline:#232D38;
+    --text:#EAF1F7;
+    --dim:#7E93A7;
+    --dimmer:#4D5C6C;
+    --ready:#FFD84D;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--void);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:560px;margin:0 auto;}
+
+  header{
+    padding-bottom:18px;
+    margin-bottom:20px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .eyebrow{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    letter-spacing:0.12em;
+    font-size:13px;
+    color:var(--dim);
+    text-transform:uppercase;
+    margin:0 0 4px;
+  }
+  h1{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:28px;
+    letter-spacing:0.01em;
+    margin:0;
+  }
+  .status-line{
+    font-size:13px;
+    color:var(--dim);
+    margin-top:6px;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .sound-btn{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    padding:7px 12px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .sound-btn:active{transform:scale(0.97);}
+  .sound-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .hidden{display:none !important;}
+
+  .section-label{
+    font-size:13px;
+    color:var(--dim);
+    margin-bottom:10px;
+    display:block;
+  }
+  .picker{margin-bottom:22px;}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.02em;
+    padding:10px 14px;
+    border-radius:20px;
+    border:1.5px solid var(--hairline);
+    background:transparent;
+    color:var(--dim);
+    cursor:pointer;
+    flex:1 1 21%;
+    min-width:74px;
+    text-align:center;
+  }
+  .chip[data-active="true"]{color:var(--void);border-color:transparent;}
+
+  .map-list{display:flex;flex-direction:column;gap:8px;}
+  .map-btn{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    text-align:left;
+    background:var(--panel);
+    border:1.5px solid var(--hairline);
+    border-radius:10px;
+    padding:12px 16px;
+    color:var(--text);
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .map-btn .map-name{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:600;
+    font-size:16px;
+  }
+  .map-btn .map-badge{
+    font-size:12px;
+    color:var(--dim);
+    background:var(--panel-2);
+    border:1px solid var(--hairline);
+    padding:3px 9px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+  .map-btn[data-active="true"]{border-color:var(--accent,#3E8EF7);}
+  .map-btn[data-active="true"] .map-badge{color:var(--text);}
+
+  .placeholder{
+    background:var(--panel);
+    border:1px dashed var(--hairline);
+    border-radius:14px;
+    padding:40px 20px;
+    text-align:center;
+    color:var(--dim);
+    font-size:14px;
+  }
+
+  .top-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:18px;
+    font-size:13px;
+  }
+  .top-bar .info{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:15px;}
+  .top-bar .info span.dim{color:var(--dim);font-weight:500;}
+  .top-bar button{
+    background:var(--panel-2);
+    border:1px solid var(--hairline);
+    color:var(--text);
+    font-size:12px;
+    font-weight:600;
+    padding:7px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-family:'Rajdhani',sans-serif;
+  }
+
+  .points-grid{display:flex;flex-direction:column;gap:12px;}
+
+  .card{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:14px;
+    padding:14px 16px;
+    overflow:hidden;
+  }
+  .card .band{position:absolute;top:0;left:0;bottom:0;width:4px;}
+
+  .ring-wrap{position:relative;width:92px;height:92px;flex:none;}
+  svg.ring{transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:var(--hairline);stroke-width:7;}
+  .ring-fg{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .3s linear;}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-time{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;line-height:1;}
+  .ring-unit{font-size:9px;color:var(--dim);letter-spacing:0.05em;margin-top:2px;}
+
+  .card-body{flex:1;min-width:0;}
+  .point-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17px;letter-spacing:0.02em;margin-bottom:2px;}
+  .status-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.02em;margin-bottom:2px;}
+  .status-sub{font-size:12px;color:var(--dim);line-height:1.3;margin-bottom:10px;}
+
+  .use-btn{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    padding:9px 14px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    color:var(--void);
+  }
+  .use-btn:active{transform:scale(0.97);}
+
+  .card.is-ready{box-shadow:0 0 0 2px var(--ready);}
+  .card.is-ready .status-label{color:var(--ready);}
+  .card.pulse{animation:pulseGlow 1s ease-in-out infinite;}
+  @keyframes pulseGlow{
+    0%,100%{box-shadow:0 0 0 2px var(--ready);}
+    50%{box-shadow:0 0 18px 3px var(--ready);}
+  }
+
+  .alert-banner{
+    position:fixed;top:16px;left:50%;
+    transform:translateX(-50%) translateY(-140%);
+    background:var(--ready);
+    color:var(--void);
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.03em;
+    padding:12px 22px;
+    border-radius:10px;
+    z-index:50;
+    transition:transform .35s ease;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    max-width:90vw;
+    text-align:center;
+  }
+  .alert-banner.show{transform:translateX(-50%) translateY(0);}
+
+  .pip-note{
+    font-size:12px;color:var(--dim);
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:18px;
+    line-height:1.5;
+  }
+  .pip-note.warn{color:var(--ready);border-color:var(--ready);}
+
+  footer{margin-top:28px;font-size:12px;color:var(--dimmer);text-align:center;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">GVG · Coordenação de time</p>
+    <h1>Alerta de ponto de cura</h1>
+    <p class="status-line">
+      <button class="sound-btn" id="pipBtn" type="button">
+        <span>&#128337;</span>
+        <span id="pipLabel">Modo flutuante</span>
+      </button>
+      <button class="sound-btn" id="soundBtn" type="button">
+        <span id="soundIcon">&#128266;</span>
+        <span id="soundLabel">Som ligado</span>
+      </button>
+    </p>
+  </header>
+
+  <div class="pip-note hidden" id="pipNote"></div>
+
+  <div id="selectionScreen">
+    <div class="picker">
+      <span class="section-label">Escolha o seu time:</span>
+      <div class="chip-row" id="chipRow"></div>
+    </div>
+
+    <div id="mapSection" class="hidden">
+      <span class="section-label">Mapa do seu time:</span>
+      <div class="map-list" id="mapList"></div>
+    </div>
+
+    <div class="placeholder" id="placeholder">
+      Selecione o seu time acima para continuar.
+    </div>
+  </div>
+
+  <div id="pointsScreen" class="hidden">
+    <div class="top-bar">
+      <span class="info" id="topBarInfo">Time · Mapa</span>
+      <button id="changeSelectionBtn" type="button">Trocar time/mapa</button>
+    </div>
+    <div id="pointsHolder" class="points-grid"></div>
+  </div>
+
+  <footer>
+    Cada ponto de cura do mapa tem sua própria contagem de 60s, reiniciada por quem apertar "usei o ponto".<br>
+    Este app roda localmente no seu aparelho — sem servidor. Cada pessoa do time controla o próprio relógio.<br>
+    "Modo flutuante" abre uma janela clicável por cima de outras janelas (Chrome/Edge atualizados).
+  </footer>
+
+</div>
+
+<div class="alert-banner" id="alertBanner"></div>
+
+<script>
+const TEAMS = [
+  {id:"1", name:"Time 1", color:"#E5484D"},
+  {id:"2", name:"Time 2", color:"#3E8EF7"},
+  {id:"3", name:"Time 3", color:"#35C48C"},
+  {id:"4", name:"Time 4", color:"#E8B339"},
+  {id:"5", name:"Time 5", color:"#9B6BFF"},
+  {id:"6", name:"Time 6", color:"#FF8A3D"},
+  {id:"7", name:"Time 7", color:"#FF5FA8"},
+  {id:"8", name:"Time 8", color:"#38D9E0"}
+];
+
+const MAPS = [
+  {id:"whisk_peak",   name:"Whisk Peak",          points:[{id:"a",label:"Ponto A"},{id:"c",label:"Ponto C"}]},
+  {id:"foosha",       name:"Foosha",              points:[{id:"norte",label:"Norte"},{id:"sul",label:"Sul"}]},
+  {id:"shells_town",  name:"Shells Town",         points:[{id:"unico",label:"Único ponto"}]},
+  {id:"orange_town",  name:"Orange Town",         points:[{id:"a",label:"Ponto A"},{id:"b",label:"Ponto B"},{id:"c",label:"Ponto C"}]},
+  {id:"cocoyasi",     name:"Cocoyasi",            points:[{id:"unico",label:"Único ponto"}]},
+  {id:"loguetown",    name:"Loguetown",           points:[]},
+  {id:"drum_island",  name:"Drum Island",         points:[{id:"ferreiro",label:"Ferreiro"},{id:"bar1",label:"Bar (1)"},{id:"bar2",label:"Bar (2)"}]},
+  {id:"alubarna",     name:"Alubarna",            points:[{id:"norte",label:"Norte"},{id:"sul",label:"Sul"}]},
+  {id:"water7",       name:"Water 7",             points:[{id:"leste",label:"Leste"},{id:"oeste",label:"Oeste"}]},
+  {id:"enies_lobby",  name:"Enies Lobby",         points:[{id:"unico",label:"Único ponto"}]},
+  {id:"amazon_lilly", name:"Amazon Lilly",        points:[]},
+  {id:"sabaody",      name:"Sabaody Archipelago", points:[{id:"norte",label:"Norte"},{id:"sudoeste",label:"Sudoeste"},{id:"sudeste",label:"Sudeste"}]}
+];
+
+const CYCLE = 60;
+const RADIUS = 38;
+const CIRC = 2 * Math.PI * RADIUS;
+const LS_STATE = "gvg_local_state";
+const LS_PREFS = "gvg_local_prefs";
+
+function emptyState(){
+  const maps = {}, points = {};
+  TEAMS.forEach(t=>{ maps[t.id] = null; points[t.id] = {}; });
+  return {maps, points};
+}
+
+let state = emptyState();
+let myTeam = null;
+let soundOn = true;
+let alertedFor = {};
+let pipWin = null;
+
+const chipRow = document.getElementById('chipRow');
+const mapSection = document.getElementById('mapSection');
+const mapList = document.getElementById('mapList');
+const placeholder = document.getElementById('placeholder');
+const selectionScreen = document.getElementById('selectionScreen');
+const pointsScreen = document.getElementById('pointsScreen');
+const topBarInfo = document.getElementById('topBarInfo');
+const changeSelectionBtn = document.getElementById('changeSelectionBtn');
+const pointsHolder = document.getElementById('pointsHolder');
+const alertBanner = document.getElementById('alertBanner');
+const soundBtn = document.getElementById('soundBtn');
+const soundIcon = document.getElementById('soundIcon');
+const soundLabel = document.getElementById('soundLabel');
+const pipBtn = document.getElementById('pipBtn');
+const pipLabel = document.getElementById('pipLabel');
+const pipNote = document.getElementById('pipNote');
+
+function loadLocal(){
+  try{
+    const rawState = localStorage.getItem(LS_STATE);
+    if(rawState){
+      const parsed = JSON.parse(rawState);
+      TEAMS.forEach(t=>{
+        if(parsed.maps && parsed.maps[t.id] !== undefined) state.maps[t.id] = parsed.maps[t.id];
+        if(parsed.points && parsed.points[t.id]) state.points[t.id] = parsed.points[t.id];
+      });
+    }
+  }catch(e){}
+  try{
+    const rawPrefs = localStorage.getItem(LS_PREFS);
+    if(rawPrefs){
+      const p = JSON.parse(rawPrefs);
+      myTeam = p.myTeam || null;
+      soundOn = p.soundOn !== undefined ? p.soundOn : true;
+    }
+  }catch(e){}
+}
+function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(state)); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem(LS_PREFS, JSON.stringify({myTeam, soundOn})); }catch(e){} }
+
+function buildChips(){
+  chipRow.innerHTML = TEAMS.map(t=>`
+    <button class="chip" data-team="${t.id}" data-active="false" type="button">${t.name}</button>
+  `).join('');
+  chipRow.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>selectTeam(chip.dataset.team));
+  });
+}
+
+function currentTeamObj(){ return TEAMS.find(t=>t.id===myTeam); }
+function currentMapId(){ return myTeam ? state.maps[myTeam] : null; }
+function currentMapObj(){ const id = currentMapId(); return MAPS.find(m=>m.id===id) || null; }
+
+function selectTeam(id){
+  myTeam = id;
+  renderChips();
+  savePrefs();
+  renderMapSection();
+  closeFloating();
+}
+
+function renderChips(){
+  chipRow.querySelectorAll('.chip').forEach(chip=>{
+    const active = chip.dataset.team === myTeam;
+    chip.dataset.active = active ? "true" : "false";
+    const team = TEAMS.find(t=>t.id===chip.dataset.team);
+    chip.style.background = active ? team.color : 'transparent';
+    chip.style.borderColor = active ? team.color : '';
+  });
+}
+
+function renderMapSection(){
+  if(!myTeam){
+    mapSection.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+    placeholder.textContent = 'Selecione o seu time acima para continuar.';
+    return;
+  }
+  mapSection.classList.remove('hidden');
+  placeholder.classList.remove('hidden');
+  placeholder.textContent = 'Selecione o mapa do seu time acima.';
+  const activeMapId = currentMapId();
+  const team = currentTeamObj();
+  mapList.innerHTML = MAPS.map(m=>`
+    <button class="map-btn" data-map="${m.id}" data-active="${m.id===activeMapId}" style="--accent:${team.color}" type="button">
+      <span class="map-name">${m.name}</span>
+      <span class="map-badge">${m.points.length === 0 ? 'sem cura' : m.points.length + ' ponto' + (m.points.length>1?'s':'')}</span>
+    </button>
+  `).join('');
+  mapList.querySelectorAll('.map-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>selectMap(btn.dataset.map));
+  });
+}
+
+function selectMap(mapId){
+  state.maps[myTeam] = mapId;
+  alertedFor = {};
+  saveState();
+  closeFloating();
+  enterPointsScreen();
+}
+
+function enterPointsScreen(){
+  const map = currentMapObj();
+  const team = currentTeamObj();
+  if(!map){ renderMapSection(); return; }
+
+  selectionScreen.classList.add('hidden');
+  pointsScreen.classList.remove('hidden');
+  topBarInfo.innerHTML = `${team.name} <span class="dim">·</span> ${map.name}`;
+
+  if(map.points.length === 0){
+    pointsHolder.innerHTML = `<div class="placeholder">${map.name} não tem pontos de cura para monitorar.</div>`;
+    return;
+  }
+  pointsHolder.innerHTML = map.points.map(p => `
+    <div class="card" data-point="${p.id}" id="card-${p.id}">
+      <div class="band" style="background:${team.color}"></div>
+      <div class="ring-wrap">
+        <svg class="ring" width="92" height="92" viewBox="0 0 92 92">
+          <circle class="ring-bg" cx="46" cy="46" r="${RADIUS}"></circle>
+          <circle class="ring-fg" id="ring-${p.id}" cx="46" cy="46" r="${RADIUS}"
+            stroke="${team.color}" stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC}"></circle>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-time" id="time-${p.id}">--</span>
+          <span class="ring-unit">seg</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="point-name">${p.label}</div>
+        <div class="status-label" id="status-${p.id}">Aguardando</div>
+        <div class="status-sub" id="sub-${p.id}">Ninguém marcou o uso ainda.</div>
+        <button class="use-btn" id="btn-${p.id}" style="background:${team.color}" type="button">Usei o ponto</button>
+      </div>
+    </div>
+  `).join('');
+  map.points.forEach(p=>{
+    document.getElementById(`btn-${p.id}`).addEventListener('click', ()=>markPointUsed(p.id));
+  });
+  renderTimers();
+}
+
+changeSelectionBtn.addEventListener('click', ()=>{
+  pointsScreen.classList.add('hidden');
+  selectionScreen.classList.remove('hidden');
+  renderChips();
+  renderMapSection();
+  closeFloating();
+});
+
+function renderSoundBtn(){
+  soundIcon.textContent = soundOn ? '\u{1F50A}' : '\u{1F507}';
+  soundLabel.textContent = soundOn ? 'Som ligado' : 'Som desligado';
+}
+soundBtn.addEventListener('click', ()=>{
+  soundOn = !soundOn;
+  renderSoundBtn();
+  savePrefs();
+});
+
+function markPointUsed(pointId){
+  if(!myTeam) return;
+  const now = Date.now();
+  state.points[myTeam][pointId] = now;
+  delete alertedFor[pointId];
+  saveState();
+  renderTimers();
+}
+
+function playBeep(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const freqs = [660, 880, 1046];
+    freqs.forEach((f, i)=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + i*0.14);
+      gain.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + i*0.14 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.14 + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + i*0.14);
+      osc.stop(ctx.currentTime + i*0.14 + 0.24);
+    });
+  }catch(e){}
+}
+
+function showBanner(text){
+  alertBanner.textContent = text;
+  alertBanner.classList.add('show');
+  clearTimeout(showBanner._t);
+  showBanner._t = setTimeout(()=>{ alertBanner.classList.remove('show'); }, 4000);
+}
+
+/* ---------- TIMERS (main doc + floating doc together) ---------- */
+
+function renderTimers(){
+  const map = currentMapObj();
+  if(!map || !myTeam) return;
+  const now = Date.now();
+  const docs = [document];
+  if(pipWin && !pipWin.closed) docs.push(pipWin.document);
+
+  map.points.forEach(p=>{
+    const start = state.points[myTeam][p.id];
+    const elapsed = start ? (now - start) / 1000 : null;
+    const ready = elapsed !== null && elapsed >= CYCLE;
+    const remaining = start ? Math.max(0, Math.ceil(CYCLE - elapsed)) : null;
+
+    docs.forEach(doc=>{
+      const card = doc.getElementById(`card-${p.id}`);
+      if(!card) return;
+      const ring = doc.getElementById(`ring-${p.id}`);
+      const timeEl = doc.getElementById(`time-${p.id}`);
+      const statusEl = doc.getElementById(`status-${p.id}`);
+      const subEl = doc.getElementById(`sub-${p.id}`);
+      const pring = doc.getElementById(`pring-${p.id}`);
+
+      if(!start){
+        if(ring) ring.style.strokeDashoffset = CIRC;
+        if(timeEl) timeEl.textContent = '--';
+        if(statusEl) statusEl.textContent = 'Aguardando';
+        if(subEl) subEl.textContent = 'Sem uso registrado.';
+        card.classList.remove('is-ready','pulse');
+        if(pring) pring.style.setProperty('--pct','0%');
+        return;
+      }
+
+      if(!ready){
+        const progress = elapsed / CYCLE;
+        if(ring) ring.style.strokeDashoffset = CIRC * (1 - progress);
+        if(pring) pring.style.setProperty('--pct', Math.round(progress*100)+'%');
+        if(timeEl) timeEl.textContent = remaining;
+        if(statusEl) statusEl.textContent = 'Curando';
+        if(subEl) subEl.textContent = `Disponível em ${remaining}s.`;
+        card.classList.remove('is-ready','pulse');
+      } else {
+        if(ring) ring.style.strokeDashoffset = 0;
+        if(pring) pring.style.setProperty('--pct','100%');
+        if(timeEl) timeEl.textContent = '60+';
+        if(statusEl) statusEl.textContent = 'Disponível';
+        if(subEl) subEl.textContent = 'Ponto já renasceu.';
+        card.classList.add('is-ready','pulse');
+      }
+    });
+
+    if(ready && alertedFor[p.id] !== start){
+      alertedFor[p.id] = start;
+      showBanner(`${p.label}: ponto de cura disponível`);
+      if(soundOn) playBeep();
+      if(navigator.vibrate){ try{ navigator.vibrate([120,60,120]); }catch(e){} }
+    }
+  });
+}
+
+/* ---------- DOCUMENT PICTURE-IN-PICTURE (real clickable overlay) ---------- */
+
+function showPipNote(text, warn){
+  pipNote.textContent = text;
+  pipNote.classList.remove('hidden');
+  pipNote.classList.toggle('warn', !!warn);
+}
+
+function buildFloatingDoc(win, map, team){
+  const doc = win.document;
+  doc.head.innerHTML = `
+    <meta charset="UTF-8">
+    <style>
+      *{box-sizing:border-box;}
+      html,body{margin:0;padding:0;background:#0A0E13;color:#EAF1F7;font-family:system-ui,-apple-system,Segoe UI,sans-serif;}
+      .frow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #232D38;}
+      .frow:last-child{border-bottom:none;}
+      .frow.ready{background:rgba(255,216,77,0.14);}
+      .pring{
+        --pct:0%;
+        width:46px;height:46px;border-radius:50%;flex:none;position:relative;
+        background:conic-gradient(${team.color} var(--pct), #232D38 0);
+        display:flex;align-items:center;justify-content:center;
+      }
+      .pring::before{content:'';position:absolute;inset:5px;background:#0A0E13;border-radius:50%;}
+      .pring span{position:relative;z-index:1;font-weight:700;font-size:13px;font-family:monospace;}
+      .pinfo{flex:1;min-width:0;}
+      .pname{font-weight:700;font-size:13px;}
+      .pstatus{font-size:11px;color:#7E93A7;margin-top:1px;}
+      .pbtn{
+        border:none;border-radius:7px;padding:9px 12px;font-weight:700;
+        font-size:11px;color:#0A0E13;cursor:pointer;text-transform:uppercase;
+        background:${team.color};flex:none;
+      }
+      .pbtn:active{transform:scale(0.96);}
+      .fheader{font-size:11px;color:#7E93A7;padding:8px 12px 4px;}
+    </style>
+  `;
+  const rowsHtml = map.points.map(p => `
+    <div class="frow" id="card-${p.id}">
+      <div class="pring" id="pring-${p.id}"><span id="time-${p.id}">--</span></div>
+      <div class="pinfo">
+        <div class="pname">${p.label}</div>
+        <div class="pstatus" id="status-${p.id}">Aguardando</div>
+      </div>
+      <button class="pbtn" id="btn-${p.id}" type="button">Usei</button>
+    </div>
+  `).join('');
+  doc.body.innerHTML = `<div class="fheader">${team.name} · ${map.name}</div>${rowsHtml}`;
+  map.points.forEach(p=>{
+    doc.getElementById(`btn-${p.id}`).addEventListener('click', ()=>markPointUsed(p.id));
+  });
+}
+
+async function toggleFloating(){
+  if(pipWin && !pipWin.closed){
+    pipWin.close();
+    return;
+  }
+  if(!('documentPictureInPicture' in window)){
+    showPipNote('Modo flutuante clicável requer Chrome ou Edge atualizado (versão 116 ou mais recente) no computador.', true);
+    return;
+  }
+  const map = currentMapObj();
+  const team = currentTeamObj();
+  if(!myTeam || !map || map.points.length === 0){
+    showPipNote('Selecione um time e um mapa com pontos de cura antes de abrir o modo flutuante.', true);
+    return;
+  }
+  try{
+    pipWin = await documentPictureInPicture.requestWindow({
+      width: 300,
+      height: Math.min(420, 44 + map.points.length * 68)
+    });
+  }catch(e){
+    showPipNote('Não foi possível abrir a janela flutuante agora. Tente de novo.', true);
+    return;
+  }
+  buildFloatingDoc(pipWin, map, team);
+  renderTimers();
+  pipLabel.textContent = 'Fechar flutuante';
+  pipNote.classList.add('hidden');
+  pipWin.addEventListener('pagehide', ()=>{
+    pipWin = null;
+    pipLabel.textContent = 'Modo flutuante';
+  });
+}
+
+function closeFloating(){
+  if(pipWin && !pipWin.closed){
+    pipWin.close();
+  }
+  pipWin = null;
+  pipLabel.textContent = 'Modo flutuante';
+}
+
+pipBtn.addEventListener('click', toggleFloating);
+
+function tickLoop(){
+  renderTimers();
+  setInterval(renderTimers, 1000);
+}
+
+function init(){
+  buildChips();
+  loadLocal();
+  renderSoundBtn();
+  if(!('documentPictureInPicture' in window)){
+    showPipNote('Modo flutuante clicável requer Chrome ou Edge atualizado (versão 116+) no computador.', true);
+  }
+  if(myTeam){
+    renderChips();
+    if(currentMapId()){
+      enterPointsScreen();
+    } else {
+      renderMapSection();
+    }
+  }
+  tickLoop();
+}
+
+init();
+</script>
+</body>
+</html>
