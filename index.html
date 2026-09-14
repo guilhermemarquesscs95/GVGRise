@@ -55,10 +55,12 @@
     margin-top:6px;
     display:flex;
     align-items:center;
-    justify-content:flex-end;
+    justify-content:space-between;
     gap:8px;
     flex-wrap:wrap;
   }
+  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#35C48C;margin-right:6px;}
+  .status-dot.off{background:var(--dimmer);}
   .sound-btn{
     display:flex;align-items:center;gap:8px;
     background:var(--panel);
@@ -72,118 +74,89 @@
     cursor:pointer;
   }
   .sound-btn:active{transform:scale(0.97);}
-  .sound-btn:disabled{opacity:0.4;cursor:not-allowed;}
 
   .hidden{display:none !important;}
 
-  .section-label{
-    font-size:13px;
-    color:var(--dim);
-    margin-bottom:10px;
-    display:block;
+  .setup-card{
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
   }
+  .setup-card h2{font-family:'Rajdhani',sans-serif;font-size:19px;margin:0 0 6px;}
+  .setup-card p{font-size:13px;color:var(--dim);line-height:1.5;margin:0 0 16px;}
+  .primary-btn{
+    width:100%;
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    padding:13px;
+    border-radius:9px;
+    border:none;
+    cursor:pointer;
+    color:var(--void);
+    background:#3E8EF7;
+    margin-bottom:10px;
+  }
+  .primary-btn:active{transform:scale(0.98);}
+  .join-row{display:flex;gap:8px;}
+  .join-row input{
+    flex:1;background:var(--panel-2);border:1px solid var(--hairline);color:var(--text);
+    font-family:'JetBrains Mono',monospace;font-size:14px;padding:11px 12px;border-radius:8px;
+  }
+  .join-row button{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;padding:0 18px;
+    border-radius:8px;border:1px solid var(--hairline);background:transparent;color:var(--text);cursor:pointer;
+  }
+  .setup-error{color:#E5484D;font-size:12px;margin-top:8px;display:none;}
+  .setup-error.show{display:block;}
+
+  .room-badge{
+    display:flex;align-items:center;gap:10px;
+    background:var(--panel);border:1px solid var(--hairline);border-radius:10px;
+    padding:10px 14px;margin-bottom:18px;font-size:13px;
+  }
+  .room-badge .code{font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:0.03em;color:var(--text);flex:1;}
+  .room-badge button{background:var(--panel-2);border:1px solid var(--hairline);color:var(--dim);font-size:12px;padding:6px 10px;border-radius:6px;cursor:pointer;}
+
+  .section-label{font-size:13px;color:var(--dim);margin-bottom:10px;display:block;}
   .picker{margin-bottom:22px;}
   .chip-row{display:flex;gap:8px;flex-wrap:wrap;}
   .chip{
-    font-family:'Rajdhani',sans-serif;
-    font-weight:600;
-    font-size:15px;
-    letter-spacing:0.02em;
-    padding:10px 14px;
-    border-radius:20px;
-    border:1.5px solid var(--hairline);
-    background:transparent;
-    color:var(--dim);
-    cursor:pointer;
-    flex:1 1 21%;
-    min-width:74px;
-    text-align:center;
+    font-family:'Rajdhani',sans-serif;font-weight:600;font-size:15px;letter-spacing:0.02em;
+    padding:10px 14px;border-radius:20px;border:1.5px solid var(--hairline);background:transparent;
+    color:var(--dim);cursor:pointer;flex:1 1 21%;min-width:74px;text-align:center;
   }
   .chip[data-active="true"]{color:var(--void);border-color:transparent;}
 
   .map-list{display:flex;flex-direction:column;gap:8px;}
   .map-btn{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    width:100%;
-    text-align:left;
-    background:var(--panel);
-    border:1.5px solid var(--hairline);
-    border-radius:10px;
-    padding:12px 16px;
-    color:var(--text);
-    cursor:pointer;
-    font-family:'Inter',sans-serif;
+    display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;
+    background:var(--panel);border:1.5px solid var(--hairline);border-radius:10px;padding:12px 16px;
+    color:var(--text);cursor:pointer;font-family:'Inter',sans-serif;
   }
-  .map-btn .map-name{
-    font-family:'Rajdhani',sans-serif;
-    font-weight:600;
-    font-size:16px;
-  }
-  .map-btn .map-badge{
-    font-size:12px;
-    color:var(--dim);
-    background:var(--panel-2);
-    border:1px solid var(--hairline);
-    padding:3px 9px;
-    border-radius:20px;
-    white-space:nowrap;
-  }
+  .map-btn .map-name{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16px;}
+  .map-btn .map-badge{font-size:12px;color:var(--dim);background:var(--panel-2);border:1px solid var(--hairline);padding:3px 9px;border-radius:20px;white-space:nowrap;}
   .map-btn[data-active="true"]{border-color:var(--accent,#3E8EF7);}
   .map-btn[data-active="true"] .map-badge{color:var(--text);}
 
-  .placeholder{
-    background:var(--panel);
-    border:1px dashed var(--hairline);
-    border-radius:14px;
-    padding:40px 20px;
-    text-align:center;
-    color:var(--dim);
-    font-size:14px;
-  }
+  .placeholder{background:var(--panel);border:1px dashed var(--hairline);border-radius:14px;padding:40px 20px;text-align:center;color:var(--dim);font-size:14px;}
 
   .top-bar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    background:var(--panel);
-    border:1px solid var(--hairline);
-    border-radius:10px;
-    padding:10px 14px;
-    margin-bottom:18px;
-    font-size:13px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel);border:1px solid var(--hairline);border-radius:10px;padding:10px 14px;
+    margin-bottom:18px;font-size:13px;
   }
   .top-bar .info{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:15px;}
   .top-bar .info span.dim{color:var(--dim);font-weight:500;}
-  .top-bar button{
-    background:var(--panel-2);
-    border:1px solid var(--hairline);
-    color:var(--text);
-    font-size:12px;
-    font-weight:600;
-    padding:7px 12px;
-    border-radius:8px;
-    cursor:pointer;
-    font-family:'Rajdhani',sans-serif;
-  }
+  .top-bar button{background:var(--panel-2);border:1px solid var(--hairline);color:var(--text);font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;font-family:'Rajdhani',sans-serif;}
 
   .points-grid{display:flex;flex-direction:column;gap:12px;}
-
-  .card{
-    position:relative;
-    display:flex;
-    align-items:center;
-    gap:16px;
-    background:var(--panel);
-    border:1px solid var(--hairline);
-    border-radius:14px;
-    padding:14px 16px;
-    overflow:hidden;
-  }
+  .card{position:relative;display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--hairline);border-radius:14px;padding:14px 16px;overflow:hidden;}
   .card .band{position:absolute;top:0;left:0;bottom:0;width:4px;}
-
   .ring-wrap{position:relative;width:92px;height:92px;flex:none;}
   svg.ring{transform:rotate(-90deg);}
   .ring-bg{fill:none;stroke:var(--hairline);stroke-width:7;}
@@ -191,62 +164,29 @@
   .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ring-time{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;line-height:1;}
   .ring-unit{font-size:9px;color:var(--dim);letter-spacing:0.05em;margin-top:2px;}
-
   .card-body{flex:1;min-width:0;}
   .point-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17px;letter-spacing:0.02em;margin-bottom:2px;}
   .status-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.02em;margin-bottom:2px;}
   .status-sub{font-size:12px;color:var(--dim);line-height:1.3;margin-bottom:10px;}
-
   .use-btn{
-    font-family:'Rajdhani',sans-serif;
-    font-weight:700;
-    font-size:13px;
-    letter-spacing:0.03em;
-    text-transform:uppercase;
-    padding:9px 14px;
-    border-radius:8px;
-    border:none;
-    cursor:pointer;
-    color:var(--void);
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;
+    padding:9px 14px;border-radius:8px;border:none;cursor:pointer;color:var(--void);
   }
   .use-btn:active{transform:scale(0.97);}
-
   .card.is-ready{box-shadow:0 0 0 2px var(--ready);}
   .card.is-ready .status-label{color:var(--ready);}
   .card.pulse{animation:pulseGlow 1s ease-in-out infinite;}
-  @keyframes pulseGlow{
-    0%,100%{box-shadow:0 0 0 2px var(--ready);}
-    50%{box-shadow:0 0 18px 3px var(--ready);}
-  }
+  @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 2px var(--ready);}50%{box-shadow:0 0 18px 3px var(--ready);}}
 
   .alert-banner{
-    position:fixed;top:16px;left:50%;
-    transform:translateX(-50%) translateY(-140%);
-    background:var(--ready);
-    color:var(--void);
-    font-family:'Rajdhani',sans-serif;
-    font-weight:700;
-    font-size:15px;
-    letter-spacing:0.03em;
-    padding:12px 22px;
-    border-radius:10px;
-    z-index:50;
-    transition:transform .35s ease;
-    box-shadow:0 8px 24px rgba(0,0,0,0.4);
-    max-width:90vw;
-    text-align:center;
+    position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-140%);
+    background:var(--ready);color:var(--void);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;
+    letter-spacing:0.03em;padding:12px 22px;border-radius:10px;z-index:50;transition:transform .35s ease;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:90vw;text-align:center;
   }
   .alert-banner.show{transform:translateX(-50%) translateY(0);}
 
-  .pip-note{
-    font-size:12px;color:var(--dim);
-    background:var(--panel);
-    border:1px solid var(--hairline);
-    border-radius:10px;
-    padding:10px 14px;
-    margin-bottom:18px;
-    line-height:1.5;
-  }
+  .pip-note{font-size:12px;color:var(--dim);background:var(--panel);border:1px solid var(--hairline);border-radius:10px;padding:10px 14px;margin-bottom:18px;line-height:1.5;}
   .pip-note.warn{color:var(--ready);border-color:var(--ready);}
 
   footer{margin-top:28px;font-size:12px;color:var(--dimmer);text-align:center;line-height:1.6;}
@@ -259,46 +199,71 @@
     <p class="eyebrow">GVG · Coordenação de time</p>
     <h1>Alerta de ponto de cura</h1>
     <p class="status-line">
-      <button class="sound-btn" id="pipBtn" type="button">
-        <span>&#128337;</span>
-        <span id="pipLabel">Modo flutuante</span>
-      </button>
-      <button class="sound-btn" id="soundBtn" type="button">
-        <span id="soundIcon">&#128266;</span>
-        <span id="soundLabel">Som ligado</span>
-      </button>
+      <span><span class="status-dot off" id="syncDot"></span><span id="syncText">—</span></span>
+      <span style="display:flex;gap:8px;">
+        <button class="sound-btn hidden" id="pipBtn" type="button">
+          <span>&#128337;</span><span id="pipLabel">Modo flutuante</span>
+        </button>
+        <button class="sound-btn hidden" id="soundBtn" type="button">
+          <span id="soundIcon">&#128266;</span><span id="soundLabel">Som ligado</span>
+        </button>
+      </span>
     </p>
   </header>
 
   <div class="pip-note hidden" id="pipNote"></div>
 
-  <div id="selectionScreen">
-    <div class="picker">
-      <span class="section-label">Escolha o seu time:</span>
-      <div class="chip-row" id="chipRow"></div>
+  <!-- ROOM SETUP -->
+  <div id="setupScreen">
+    <div class="setup-card">
+      <h2>Criar uma sala nova</h2>
+      <p>Gera um código único para o seu grupo. Você manda esse código pros seus amigos.</p>
+      <button class="primary-btn" id="createRoomBtn" type="button">Criar sala</button>
     </div>
-
-    <div id="mapSection" class="hidden">
-      <span class="section-label">Mapa do seu time:</span>
-      <div class="map-list" id="mapList"></div>
-    </div>
-
-    <div class="placeholder" id="placeholder">
-      Selecione o seu time acima para continuar.
+    <div class="setup-card">
+      <h2>Entrar com um código</h2>
+      <p>Cole aqui o código que um amigo do seu time te mandou.</p>
+      <div class="join-row">
+        <input type="text" id="joinInput" placeholder="cole o código da sala">
+        <button id="joinRoomBtn" type="button">Entrar</button>
+      </div>
+      <p class="setup-error" id="setupError">Não encontrei essa sala. Confira o código.</p>
     </div>
   </div>
 
-  <div id="pointsScreen" class="hidden">
-    <div class="top-bar">
-      <span class="info" id="topBarInfo">Time · Mapa</span>
-      <button id="changeSelectionBtn" type="button">Trocar time/mapa</button>
+  <!-- MAIN APP -->
+  <div id="mainScreen" class="hidden">
+    <div class="room-badge">
+      <span>Sala:</span>
+      <span class="code" id="roomCodeLabel">—</span>
+      <button id="copyRoomBtn" type="button">Copiar código</button>
+      <button id="leaveRoomBtn" type="button">Trocar</button>
     </div>
-    <div id="pointsHolder" class="points-grid"></div>
+
+    <div id="selectionScreen">
+      <div class="picker">
+        <span class="section-label">Escolha o seu time:</span>
+        <div class="chip-row" id="chipRow"></div>
+      </div>
+      <div id="mapSection" class="hidden">
+        <span class="section-label">Mapa do seu time:</span>
+        <div class="map-list" id="mapList"></div>
+      </div>
+      <div class="placeholder" id="placeholder">Selecione o seu time acima para continuar.</div>
+    </div>
+
+    <div id="pointsScreen" class="hidden">
+      <div class="top-bar">
+        <span class="info" id="topBarInfo">Time · Mapa</span>
+        <button id="changeSelectionBtn" type="button">Trocar time/mapa</button>
+      </div>
+      <div id="pointsHolder" class="points-grid"></div>
+    </div>
   </div>
 
   <footer>
     Cada ponto de cura do mapa tem sua própria contagem de 60s, reiniciada por quem apertar "usei o ponto".<br>
-    Este app roda localmente no seu aparelho — sem servidor. Cada pessoa do time controla o próprio relógio.<br>
+    A sincronização usa um serviço online gratuito (jsonblob.com) — todos que entrarem na mesma sala veem o mesmo relógio.<br>
     "Modo flutuante" abre uma janela clicável por cima de outras janelas (Chrome/Edge atualizados).
   </footer>
 
@@ -336,19 +301,31 @@ const MAPS = [
 const CYCLE = 60;
 const RADIUS = 38;
 const CIRC = 2 * Math.PI * RADIUS;
-const LS_STATE = "gvg_local_state";
-const LS_PREFS = "gvg_local_prefs";
+const API_BASE = "https://jsonblob.com/api/jsonBlob";
+const LS_ROOM = "gvg_room_id";
+const LS_PREFS = "gvg_prefs";
+const POLL_MS = 2000;
 
 function emptyState(){
   const maps = {}, points = {};
   TEAMS.forEach(t=>{ maps[t.id] = null; points[t.id] = {}; });
   return {maps, points};
 }
+function normalizeState(data){
+  const base = emptyState();
+  if(data){
+    if(data.maps) TEAMS.forEach(t=>{ if(data.maps[t.id] !== undefined) base.maps[t.id] = data.maps[t.id]; });
+    if(data.points) TEAMS.forEach(t=>{ if(data.points[t.id]) Object.assign(base.points[t.id], data.points[t.id]); });
+  }
+  return base;
+}
 
 let state = emptyState();
 let myTeam = null;
 let soundOn = true;
 let alertedFor = {};
+let roomId = null;
+let syncOk = false;
 let pipWin = null;
 
 const chipRow = document.getElementById('chipRow');
@@ -364,37 +341,36 @@ const alertBanner = document.getElementById('alertBanner');
 const soundBtn = document.getElementById('soundBtn');
 const soundIcon = document.getElementById('soundIcon');
 const soundLabel = document.getElementById('soundLabel');
+const syncDot = document.getElementById('syncDot');
+const syncText = document.getElementById('syncText');
 const pipBtn = document.getElementById('pipBtn');
 const pipLabel = document.getElementById('pipLabel');
 const pipNote = document.getElementById('pipNote');
 
-function loadLocal(){
+const setupScreen = document.getElementById('setupScreen');
+const mainScreen = document.getElementById('mainScreen');
+const createRoomBtn = document.getElementById('createRoomBtn');
+const joinInput = document.getElementById('joinInput');
+const joinRoomBtn = document.getElementById('joinRoomBtn');
+const setupError = document.getElementById('setupError');
+const roomCodeLabel = document.getElementById('roomCodeLabel');
+const copyRoomBtn = document.getElementById('copyRoomBtn');
+const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+
+function loadPrefsLocal(){
   try{
-    const rawState = localStorage.getItem(LS_STATE);
-    if(rawState){
-      const parsed = JSON.parse(rawState);
-      TEAMS.forEach(t=>{
-        if(parsed.maps && parsed.maps[t.id] !== undefined) state.maps[t.id] = parsed.maps[t.id];
-        if(parsed.points && parsed.points[t.id]) state.points[t.id] = parsed.points[t.id];
-      });
-    }
-  }catch(e){}
-  try{
-    const rawPrefs = localStorage.getItem(LS_PREFS);
-    if(rawPrefs){
-      const p = JSON.parse(rawPrefs);
+    const raw = localStorage.getItem(LS_PREFS);
+    if(raw){
+      const p = JSON.parse(raw);
       myTeam = p.myTeam || null;
       soundOn = p.soundOn !== undefined ? p.soundOn : true;
     }
   }catch(e){}
 }
-function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(state)); }catch(e){} }
-function savePrefs(){ try{ localStorage.setItem(LS_PREFS, JSON.stringify({myTeam, soundOn})); }catch(e){} }
+function savePrefsLocal(){ try{ localStorage.setItem(LS_PREFS, JSON.stringify({myTeam, soundOn})); }catch(e){} }
 
 function buildChips(){
-  chipRow.innerHTML = TEAMS.map(t=>`
-    <button class="chip" data-team="${t.id}" data-active="false" type="button">${t.name}</button>
-  `).join('');
+  chipRow.innerHTML = TEAMS.map(t=>`<button class="chip" data-team="${t.id}" data-active="false" type="button">${t.name}</button>`).join('');
   chipRow.querySelectorAll('.chip').forEach(chip=>{
     chip.addEventListener('click', ()=>selectTeam(chip.dataset.team));
   });
@@ -407,9 +383,15 @@ function currentMapObj(){ const id = currentMapId(); return MAPS.find(m=>m.id===
 function selectTeam(id){
   myTeam = id;
   renderChips();
-  savePrefs();
-  renderMapSection();
+  savePrefsLocal();
   closeFloating();
+  if(currentMapId()){
+    enterPointsScreen();
+  } else {
+    pointsScreen.classList.add('hidden');
+    selectionScreen.classList.remove('hidden');
+    renderMapSection();
+  }
 }
 
 function renderChips(){
@@ -445,18 +427,18 @@ function renderMapSection(){
   });
 }
 
-function selectMap(mapId){
+async function selectMap(mapId){
   state.maps[myTeam] = mapId;
   alertedFor = {};
-  saveState();
   closeFloating();
   enterPointsScreen();
+  await pushState();
 }
 
 function enterPointsScreen(){
   const map = currentMapObj();
   const team = currentTeamObj();
-  if(!map){ renderMapSection(); return; }
+  if(!map){ selectionScreen.classList.remove('hidden'); pointsScreen.classList.add('hidden'); renderMapSection(); return; }
 
   selectionScreen.classList.add('hidden');
   pointsScreen.classList.remove('hidden');
@@ -509,17 +491,157 @@ function renderSoundBtn(){
 soundBtn.addEventListener('click', ()=>{
   soundOn = !soundOn;
   renderSoundBtn();
-  savePrefs();
+  savePrefsLocal();
 });
 
-function markPointUsed(pointId){
+/* ---------- ROOM (jsonblob backend) ---------- */
+
+async function createRoom(){
+  createRoomBtn.disabled = true;
+  createRoomBtn.textContent = 'Criando...';
+  try{
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify(emptyState())
+    });
+    if(!res.ok) throw new Error('fail');
+    const loc = res.headers.get('Location');
+    const id = loc ? loc.split('/').pop() : null;
+    if(!id) throw new Error('no id');
+    roomId = id;
+    localStorage.setItem(LS_ROOM, roomId);
+    enterMainScreen();
+  }catch(e){
+    setupError.textContent = 'Não consegui criar a sala agora. Verifique sua internet e tente de novo.';
+    setupError.classList.add('show');
+  }
+  createRoomBtn.disabled = false;
+  createRoomBtn.textContent = 'Criar sala';
+}
+
+async function joinRoom(){
+  const code = joinInput.value.trim();
+  if(!code) return;
+  joinRoomBtn.disabled = true;
+  setupError.classList.remove('show');
+  try{
+    const res = await fetch(`${API_BASE}/${code}`, {headers:{'Accept':'application/json'}});
+    if(!res.ok) throw new Error('not found');
+    const data = await res.json();
+    state = normalizeState(data);
+    roomId = code;
+    localStorage.setItem(LS_ROOM, roomId);
+    enterMainScreen();
+  }catch(e){
+    setupError.textContent = 'Não encontrei essa sala. Confira o código.';
+    setupError.classList.add('show');
+  }
+  joinRoomBtn.disabled = false;
+}
+
+createRoomBtn.addEventListener('click', createRoom);
+joinRoomBtn.addEventListener('click', joinRoom);
+joinInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') joinRoom(); });
+
+copyRoomBtn.addEventListener('click', async ()=>{
+  try{
+    await navigator.clipboard.writeText(roomId);
+    copyRoomBtn.textContent = 'Copiado!';
+    setTimeout(()=>{ copyRoomBtn.textContent = 'Copiar código'; }, 1500);
+  }catch(e){
+    prompt('Copie o código da sala:', roomId);
+  }
+});
+
+leaveRoomBtn.addEventListener('click', ()=>{
+  if(!confirm('Sair desta sala? Você vai precisar do código de novo (ou criar outra) para voltar.')) return;
+  localStorage.removeItem(LS_ROOM);
+  roomId = null;
+  stopPolling();
+  closeFloating();
+  mainScreen.classList.add('hidden');
+  setupScreen.classList.remove('hidden');
+  soundBtn.classList.add('hidden');
+  pipBtn.classList.add('hidden');
+});
+
+function enterMainScreen(){
+  roomCodeLabel.textContent = roomId;
+  setupScreen.classList.add('hidden');
+  mainScreen.classList.remove('hidden');
+  soundBtn.classList.remove('hidden');
+  pipBtn.classList.remove('hidden');
+  renderChips();
+  if(myTeam && currentMapId()){
+    enterPointsScreen();
+  } else if(myTeam){
+    renderMapSection();
+  }
+  startPolling();
+}
+
+/* ---------- SYNC ---------- */
+
+async function fetchState(){
+  try{
+    const res = await fetch(`${API_BASE}/${roomId}`, {headers:{'Accept':'application/json'}});
+    if(!res.ok) throw new Error('bad status');
+    const data = await res.json();
+    state = normalizeState(data);
+    syncOk = true;
+  }catch(e){
+    syncOk = false;
+  }
+  syncDot.classList.toggle('off', !syncOk);
+  syncText.textContent = syncOk ? 'sincronizado com o time' : 'sem conexão — tentando de novo...';
+}
+
+async function pushState(){
+  if(!roomId) return;
+  try{
+    await fetch(`${API_BASE}/${roomId}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify(state)
+    });
+  }catch(e){}
+}
+
+async function markPointUsed(pointId){
   if(!myTeam) return;
   const now = Date.now();
   state.points[myTeam][pointId] = now;
   delete alertedFor[pointId];
-  saveState();
   renderTimers();
+  await pushState();
 }
+
+let pollTimer = null;
+function startPolling(){
+  if(pollTimer) return;
+  const tick = async ()=>{
+    const prevMapId = currentMapId();
+    await fetchState();
+    const nowMapId = currentMapId();
+    if(myTeam){
+      if(nowMapId && (nowMapId !== prevMapId || pointsScreen.classList.contains('hidden'))){
+        enterPointsScreen();
+      } else if(nowMapId){
+        renderTimers();
+      } else {
+        renderMapSection();
+      }
+    }
+  };
+  tick();
+  pollTimer = setInterval(tick, POLL_MS);
+}
+function stopPolling(){
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+}
+
+/* ---------- SOUND / ALERT ---------- */
 
 function playBeep(){
   try{
@@ -580,7 +702,6 @@ function renderTimers(){
         if(pring) pring.style.setProperty('--pct','0%');
         return;
       }
-
       if(!ready){
         const progress = elapsed / CYCLE;
         if(ring) ring.style.strokeDashoffset = CIRC * (1 - progress);
@@ -608,7 +729,7 @@ function renderTimers(){
   });
 }
 
-/* ---------- DOCUMENT PICTURE-IN-PICTURE (real clickable overlay) ---------- */
+/* ---------- DOCUMENT PICTURE-IN-PICTURE ---------- */
 
 function showPipNote(text, warn){
   pipNote.textContent = text;
@@ -625,23 +746,13 @@ function buildFloatingDoc(win, map, team){
       html,body{margin:0;padding:0;background:#0A0E13;color:#EAF1F7;font-family:system-ui,-apple-system,Segoe UI,sans-serif;}
       .frow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #232D38;}
       .frow:last-child{border-bottom:none;}
-      .frow.ready{background:rgba(255,216,77,0.14);}
-      .pring{
-        --pct:0%;
-        width:46px;height:46px;border-radius:50%;flex:none;position:relative;
-        background:conic-gradient(${team.color} var(--pct), #232D38 0);
-        display:flex;align-items:center;justify-content:center;
-      }
+      .pring{--pct:0%;width:46px;height:46px;border-radius:50%;flex:none;position:relative;background:conic-gradient(${team.color} var(--pct), #232D38 0);display:flex;align-items:center;justify-content:center;}
       .pring::before{content:'';position:absolute;inset:5px;background:#0A0E13;border-radius:50%;}
       .pring span{position:relative;z-index:1;font-weight:700;font-size:13px;font-family:monospace;}
       .pinfo{flex:1;min-width:0;}
       .pname{font-weight:700;font-size:13px;}
       .pstatus{font-size:11px;color:#7E93A7;margin-top:1px;}
-      .pbtn{
-        border:none;border-radius:7px;padding:9px 12px;font-weight:700;
-        font-size:11px;color:#0A0E13;cursor:pointer;text-transform:uppercase;
-        background:${team.color};flex:none;
-      }
+      .pbtn{border:none;border-radius:7px;padding:9px 12px;font-weight:700;font-size:11px;color:#0A0E13;cursor:pointer;text-transform:uppercase;background:${team.color};flex:none;}
       .pbtn:active{transform:scale(0.96);}
       .fheader{font-size:11px;color:#7E93A7;padding:8px 12px 4px;}
     </style>
@@ -663,10 +774,7 @@ function buildFloatingDoc(win, map, team){
 }
 
 async function toggleFloating(){
-  if(pipWin && !pipWin.closed){
-    pipWin.close();
-    return;
-  }
+  if(pipWin && !pipWin.closed){ pipWin.close(); return; }
   if(!('documentPictureInPicture' in window)){
     showPipNote('Modo flutuante clicável requer Chrome ou Edge atualizado (versão 116 ou mais recente) no computador.', true);
     return;
@@ -695,38 +803,25 @@ async function toggleFloating(){
     pipLabel.textContent = 'Modo flutuante';
   });
 }
-
 function closeFloating(){
-  if(pipWin && !pipWin.closed){
-    pipWin.close();
-  }
+  if(pipWin && !pipWin.closed) pipWin.close();
   pipWin = null;
   pipLabel.textContent = 'Modo flutuante';
 }
-
 pipBtn.addEventListener('click', toggleFloating);
 
-function tickLoop(){
-  renderTimers();
-  setInterval(renderTimers, 1000);
-}
-
-function init(){
+async function init(){
   buildChips();
-  loadLocal();
+  loadPrefsLocal();
   renderSoundBtn();
   if(!('documentPictureInPicture' in window)){
     showPipNote('Modo flutuante clicável requer Chrome ou Edge atualizado (versão 116+) no computador.', true);
   }
-  if(myTeam){
-    renderChips();
-    if(currentMapId()){
-      enterPointsScreen();
-    } else {
-      renderMapSection();
-    }
+  const savedRoom = localStorage.getItem(LS_ROOM);
+  if(savedRoom){
+    roomId = savedRoom;
+    enterMainScreen();
   }
-  tickLoop();
 }
 
 init();
