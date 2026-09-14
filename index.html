@@ -217,7 +217,15 @@
   <div id="setupScreen">
     <div class="setup-card">
       <h2>Criar uma sala nova</h2>
-      <p>Gera um código único para o seu grupo. Você manda esse código pros seus amigos.</p>
+      <p>Gera um código único para o seu grupo. Você manda esse código pros seus amigos (eles não precisam da chave abaixo, só de quem cria).</p>
+      <div class="join-row" style="margin-bottom:10px;">
+        <input type="text" id="apiKeyInput" placeholder="cole sua chave de API aqui">
+      </div>
+      <p style="font-size:12px;color:var(--dim);margin:0 0 12px;">
+        Não tem uma chave ainda? Crie uma conta grátis em
+        <a href="https://extendsclass.com/connect" target="_blank" style="color:#3E8EF7;">extendsclass.com</a>
+        e copie a "API key" da página "My Account". Leva 1 minuto.
+      </p>
       <button class="primary-btn" id="createRoomBtn" type="button">Criar sala</button>
     </div>
     <div class="setup-card">
@@ -263,7 +271,7 @@
 
   <footer>
     Cada ponto de cura do mapa tem sua própria contagem de 60s, reiniciada por quem apertar "usei o ponto".<br>
-    A sincronização usa um serviço online gratuito (jsonblob.com) — todos que entrarem na mesma sala veem o mesmo relógio.<br>
+    A sincronização usa um serviço online gratuito (extendsclass.com) — todos que entrarem na mesma sala veem o mesmo relógio.<br>
     "Modo flutuante" abre uma janela clicável por cima de outras janelas (Chrome/Edge atualizados).
   </footer>
 
@@ -301,10 +309,11 @@ const MAPS = [
 const CYCLE = 60;
 const RADIUS = 38;
 const CIRC = 2 * Math.PI * RADIUS;
-const API_BASE = "https://jsonblob.com/api/jsonBlob";
+const API_BASE = "https://json.extendsclass.com/bin";
+const LS_APIKEY = "gvg_api_key";
 const LS_ROOM = "gvg_room_id";
 const LS_PREFS = "gvg_prefs";
-const POLL_MS = 2000;
+const POLL_MS = 4000;
 
 function emptyState(){
   const maps = {}, points = {};
@@ -350,6 +359,7 @@ const pipNote = document.getElementById('pipNote');
 const setupScreen = document.getElementById('setupScreen');
 const mainScreen = document.getElementById('mainScreen');
 const createRoomBtn = document.getElementById('createRoomBtn');
+const apiKeyInput = document.getElementById('apiKeyInput');
 const joinInput = document.getElementById('joinInput');
 const joinRoomBtn = document.getElementById('joinRoomBtn');
 const setupError = document.getElementById('setupError');
@@ -494,24 +504,38 @@ soundBtn.addEventListener('click', ()=>{
   savePrefsLocal();
 });
 
-/* ---------- ROOM (jsonblob backend) ---------- */
+/* ---------- ROOM (extendsclass.com backend) ---------- */
 
 async function createRoom(){
+  const apiKey = apiKeyInput.value.trim();
+  if(!apiKey){
+    setupError.textContent = 'Cole sua chave de API acima antes de criar a sala (veja o link para conseguir uma grátis).';
+    setupError.classList.add('show');
+    return;
+  }
+  localStorage.setItem(LS_APIKEY, apiKey);
   createRoomBtn.disabled = true;
   createRoomBtn.textContent = 'Criando...';
+  setupError.classList.remove('show');
   try{
     const res = await fetch(API_BASE, {
       method: 'POST',
-      headers: {'Content-Type':'application/json','Accept':'application/json'},
+      headers: {'Content-Type':'application/json','Api-key': apiKey},
       body: JSON.stringify(emptyState())
     });
-    if(!res.ok) throw new Error('fail');
-    const loc = res.headers.get('Location');
-    const id = loc ? loc.split('/').pop() : null;
-    if(!id) throw new Error('no id');
-    roomId = id;
-    localStorage.setItem(LS_ROOM, roomId);
-    enterMainScreen();
+    if(res.status === 401){
+      setupError.textContent = 'Chave de API inválida. Confira se copiou certinho de extendsclass.com.';
+      setupError.classList.add('show');
+    } else if(!res.ok){
+      throw new Error('fail');
+    } else {
+      const data = await res.json();
+      const id = data && data.id;
+      if(!id) throw new Error('no id');
+      roomId = id;
+      localStorage.setItem(LS_ROOM, roomId);
+      enterMainScreen();
+    }
   }catch(e){
     setupError.textContent = 'Não consegui criar a sala agora. Verifique sua internet e tente de novo.';
     setupError.classList.add('show');
@@ -602,7 +626,7 @@ async function pushState(){
   try{
     await fetch(`${API_BASE}/${roomId}`, {
       method: 'PUT',
-      headers: {'Content-Type':'application/json','Accept':'application/json'},
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify(state)
     });
   }catch(e){}
@@ -814,6 +838,8 @@ async function init(){
   buildChips();
   loadPrefsLocal();
   renderSoundBtn();
+  const savedKey = localStorage.getItem(LS_APIKEY);
+  if(savedKey) apiKeyInput.value = savedKey;
   if(!('documentPictureInPicture' in window)){
     showPipNote('Modo flutuante clicável requer Chrome ou Edge atualizado (versão 116+) no computador.', true);
   }
