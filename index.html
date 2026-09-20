@@ -313,7 +313,7 @@ const API_BASE = "https://json.extendsclass.com/bin";
 const LS_APIKEY = "gvg_api_key";
 const LS_ROOM = "gvg_room_id";
 const LS_PREFS = "gvg_prefs";
-const POLL_MS = 4000;
+const POLL_MS = 2500;
 
 function emptyState(){
   const maps = {}, points = {};
@@ -442,7 +442,7 @@ async function selectMap(mapId){
   alertedFor = {};
   closeFloating();
   enterPointsScreen();
-  await pushState();
+  await pushPatch({maps:{[myTeam]: mapId}});
 }
 
 function enterPointsScreen(){
@@ -632,13 +632,24 @@ async function pushState(){
   }catch(e){}
 }
 
+async function pushPatch(patch){
+  if(!roomId) return;
+  try{
+    await fetch(`${API_BASE}/${roomId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/merge-patch+json'},
+      body: JSON.stringify(patch)
+    });
+  }catch(e){}
+}
+
 async function markPointUsed(pointId){
   if(!myTeam) return;
   const now = Date.now();
   state.points[myTeam][pointId] = now;
   delete alertedFor[pointId];
   renderTimers();
-  await pushState();
+  await pushPatch({points:{[myTeam]:{[pointId]: now}}});
 }
 
 let pollTimer = null;
