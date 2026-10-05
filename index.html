@@ -55,12 +55,10 @@
     margin-top:6px;
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    justify-content:flex-end;
     gap:8px;
     flex-wrap:wrap;
   }
-  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#35C48C;margin-right:6px;}
-  .status-dot.off{background:var(--dimmer);}
   .sound-btn{
     display:flex;align-items:center;gap:8px;
     background:var(--panel);
@@ -77,86 +75,127 @@
 
   .hidden{display:none !important;}
 
-  .setup-card{
-    background:var(--panel);
-    border:1px solid var(--hairline);
-    border-radius:14px;
-    padding:24px;
-    margin-bottom:20px;
-  }
-  .setup-card h2{font-family:'Rajdhani',sans-serif;font-size:19px;margin:0 0 6px;}
-  .setup-card p{font-size:13px;color:var(--dim);line-height:1.5;margin:0 0 16px;}
-  .primary-btn{
-    width:100%;
-    font-family:'Rajdhani',sans-serif;
-    font-weight:700;
-    font-size:15px;
-    letter-spacing:0.03em;
-    text-transform:uppercase;
-    padding:13px;
-    border-radius:9px;
-    border:none;
-    cursor:pointer;
-    color:var(--void);
-    background:#3E8EF7;
+  .section-label{
+    font-size:13px;
+    color:var(--dim);
     margin-bottom:10px;
+    display:block;
   }
-  .primary-btn:active{transform:scale(0.98);}
-  .join-row{display:flex;gap:8px;}
-  .join-row input{
-    flex:1;background:var(--panel-2);border:1px solid var(--hairline);color:var(--text);
-    font-family:'JetBrains Mono',monospace;font-size:14px;padding:11px 12px;border-radius:8px;
-  }
-  .join-row button{
-    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;padding:0 18px;
-    border-radius:8px;border:1px solid var(--hairline);background:transparent;color:var(--text);cursor:pointer;
-  }
-  .setup-error{color:#E5484D;font-size:12px;margin-top:8px;display:none;}
-  .setup-error.show{display:block;}
-
-  .room-badge{
-    display:flex;align-items:center;gap:10px;
-    background:var(--panel);border:1px solid var(--hairline);border-radius:10px;
-    padding:10px 14px;margin-bottom:18px;font-size:13px;
-  }
-  .room-badge .code{font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:0.03em;color:var(--text);flex:1;}
-  .room-badge button{background:var(--panel-2);border:1px solid var(--hairline);color:var(--dim);font-size:12px;padding:6px 10px;border-radius:6px;cursor:pointer;}
-
-  .section-label{font-size:13px;color:var(--dim);margin-bottom:10px;display:block;}
   .picker{margin-bottom:22px;}
   .chip-row{display:flex;gap:8px;flex-wrap:wrap;}
   .chip{
-    font-family:'Rajdhani',sans-serif;font-weight:600;font-size:15px;letter-spacing:0.02em;
-    padding:10px 14px;border-radius:20px;border:1.5px solid var(--hairline);background:transparent;
-    color:var(--dim);cursor:pointer;flex:1 1 21%;min-width:74px;text-align:center;
+    font-family:'Rajdhani',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.02em;
+    padding:10px 14px;
+    border-radius:20px;
+    border:1.5px solid var(--hairline);
+    background:transparent;
+    color:var(--dim);
+    cursor:pointer;
+    flex:1 1 21%;
+    min-width:74px;
+    text-align:center;
   }
   .chip[data-active="true"]{color:var(--void);border-color:transparent;}
 
   .map-list{display:flex;flex-direction:column;gap:8px;}
   .map-btn{
-    display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;
-    background:var(--panel);border:1.5px solid var(--hairline);border-radius:10px;padding:12px 16px;
-    color:var(--text);cursor:pointer;font-family:'Inter',sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    text-align:left;
+    background:var(--panel);
+    border:1.5px solid var(--hairline);
+    border-radius:10px;
+    padding:12px 16px;
+    color:var(--text);
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
   }
-  .map-btn .map-name{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16px;}
-  .map-btn .map-badge{font-size:12px;color:var(--dim);background:var(--panel-2);border:1px solid var(--hairline);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .map-btn .map-name{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:600;
+    font-size:16px;
+  }
+  .map-btn .map-badge{
+    font-size:12px;
+    color:var(--dim);
+    background:var(--panel-2);
+    border:1px solid var(--hairline);
+    padding:3px 9px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
   .map-btn[data-active="true"]{border-color:var(--accent,#3E8EF7);}
   .map-btn[data-active="true"] .map-badge{color:var(--text);}
 
-  .placeholder{background:var(--panel);border:1px dashed var(--hairline);border-radius:14px;padding:40px 20px;text-align:center;color:var(--dim);font-size:14px;}
+  .placeholder{
+    background:var(--panel);
+    border:1px dashed var(--hairline);
+    border-radius:14px;
+    padding:40px 20px;
+    text-align:center;
+    color:var(--dim);
+    font-size:14px;
+  }
 
   .top-bar{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
-    background:var(--panel);border:1px solid var(--hairline);border-radius:10px;padding:10px 14px;
-    margin-bottom:18px;font-size:13px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:18px;
+    font-size:13px;
   }
   .top-bar .info{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:15px;}
   .top-bar .info span.dim{color:var(--dim);font-weight:500;}
-  .top-bar button{background:var(--panel-2);border:1px solid var(--hairline);color:var(--text);font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;font-family:'Rajdhani',sans-serif;}
+  .top-bar button{
+    background:var(--panel-2);
+    border:1px solid var(--hairline);
+    color:var(--text);
+    font-size:12px;
+    font-weight:600;
+    padding:7px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-family:'Rajdhani',sans-serif;
+  }
+
+  .enemy-section{margin-bottom:20px;}
+  .enemy-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .enemy-dot{
+    width:52px;height:52px;border-radius:50%;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;
+    border:none;cursor:pointer;transition:transform .1s;
+  }
+  .enemy-dot:active{transform:scale(0.93);}
+  .enemy-dot.dead{cursor:default;}
+  .enemy-dot-label{font-size:10px;color:var(--dim);text-align:center;margin-top:4px;font-family:'Inter',sans-serif;}
+  .enemy-col{display:flex;flex-direction:column;align-items:center;}
 
   .points-grid{display:flex;flex-direction:column;gap:12px;}
-  .card{position:relative;display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--hairline);border-radius:14px;padding:14px 16px;overflow:hidden;}
+
+  .card{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:14px;
+    padding:14px 16px;
+    overflow:hidden;
+  }
   .card .band{position:absolute;top:0;left:0;bottom:0;width:4px;}
+
   .ring-wrap{position:relative;width:92px;height:92px;flex:none;}
   svg.ring{transform:rotate(-90deg);}
   .ring-bg{fill:none;stroke:var(--hairline);stroke-width:7;}
@@ -164,29 +203,62 @@
   .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ring-time{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;line-height:1;}
   .ring-unit{font-size:9px;color:var(--dim);letter-spacing:0.05em;margin-top:2px;}
+
   .card-body{flex:1;min-width:0;}
   .point-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17px;letter-spacing:0.02em;margin-bottom:2px;}
   .status-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.02em;margin-bottom:2px;}
   .status-sub{font-size:12px;color:var(--dim);line-height:1.3;margin-bottom:10px;}
+
   .use-btn{
-    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;
-    padding:9px 14px;border-radius:8px;border:none;cursor:pointer;color:var(--void);
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    padding:9px 14px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    color:var(--void);
   }
   .use-btn:active{transform:scale(0.97);}
+
   .card.is-ready{box-shadow:0 0 0 2px var(--ready);}
   .card.is-ready .status-label{color:var(--ready);}
   .card.pulse{animation:pulseGlow 1s ease-in-out infinite;}
-  @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 2px var(--ready);}50%{box-shadow:0 0 18px 3px var(--ready);}}
+  @keyframes pulseGlow{
+    0%,100%{box-shadow:0 0 0 2px var(--ready);}
+    50%{box-shadow:0 0 18px 3px var(--ready);}
+  }
 
   .alert-banner{
-    position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-140%);
-    background:var(--ready);color:var(--void);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;
-    letter-spacing:0.03em;padding:12px 22px;border-radius:10px;z-index:50;transition:transform .35s ease;
-    box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:90vw;text-align:center;
+    position:fixed;top:16px;left:50%;
+    transform:translateX(-50%) translateY(-140%);
+    background:var(--ready);
+    color:var(--void);
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.03em;
+    padding:12px 22px;
+    border-radius:10px;
+    z-index:50;
+    transition:transform .35s ease;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    max-width:90vw;
+    text-align:center;
   }
   .alert-banner.show{transform:translateX(-50%) translateY(0);}
 
-  .pip-note{font-size:12px;color:var(--dim);background:var(--panel);border:1px solid var(--hairline);border-radius:10px;padding:10px 14px;margin-bottom:18px;line-height:1.5;}
+  .pip-note{
+    font-size:12px;color:var(--dim);
+    background:var(--panel);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:18px;
+    line-height:1.5;
+  }
   .pip-note.warn{color:var(--ready);border-color:var(--ready);}
 
   footer{margin-top:28px;font-size:12px;color:var(--dimmer);text-align:center;line-height:1.6;}
@@ -199,79 +271,51 @@
     <p class="eyebrow">GVG · Coordenação de time</p>
     <h1>Alerta de ponto de cura</h1>
     <p class="status-line">
-      <span><span class="status-dot off" id="syncDot"></span><span id="syncText">—</span></span>
-      <span style="display:flex;gap:8px;">
-        <button class="sound-btn hidden" id="pipBtn" type="button">
-          <span>&#128337;</span><span id="pipLabel">Modo flutuante</span>
-        </button>
-        <button class="sound-btn hidden" id="soundBtn" type="button">
-          <span id="soundIcon">&#128266;</span><span id="soundLabel">Som ligado</span>
-        </button>
-      </span>
+      <button class="sound-btn" id="pipBtn" type="button">
+        <span>&#128337;</span><span id="pipLabel">Modo flutuante</span>
+      </button>
+      <button class="sound-btn" id="soundBtn" type="button">
+        <span id="soundIcon">&#128266;</span><span id="soundLabel">Som ligado</span>
+      </button>
     </p>
   </header>
 
   <div class="pip-note hidden" id="pipNote"></div>
 
-  <!-- ROOM SETUP -->
-  <div id="setupScreen">
-    <div class="setup-card">
-      <h2>Criar uma sala nova</h2>
-      <p>Gera um código único para o seu grupo. Você manda esse código pros seus amigos (eles não precisam da chave abaixo, só de quem cria).</p>
-      <div class="join-row" style="margin-bottom:10px;">
-        <input type="text" id="apiKeyInput" placeholder="cole sua chave de API aqui">
-      </div>
-      <p style="font-size:12px;color:var(--dim);margin:0 0 12px;">
-        Não tem uma chave ainda? Crie uma conta grátis em
-        <a href="https://extendsclass.com/connect" target="_blank" style="color:#3E8EF7;">extendsclass.com</a>
-        e copie a "API key" da página "My Account". Leva 1 minuto.
-      </p>
-      <button class="primary-btn" id="createRoomBtn" type="button">Criar sala</button>
+  <div id="selectionScreen">
+    <div class="picker">
+      <span class="section-label">Seu nick:</span>
+      <input type="text" id="nickInput" placeholder="como te chamam no jogo" maxlength="20"
+        style="width:100%;background:var(--panel-2);border:1px solid var(--hairline);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:11px 12px;border-radius:8px;">
     </div>
-    <div class="setup-card">
-      <h2>Entrar com um código</h2>
-      <p>Cole aqui o código que um amigo do seu time te mandou.</p>
-      <div class="join-row">
-        <input type="text" id="joinInput" placeholder="cole o código da sala">
-        <button id="joinRoomBtn" type="button">Entrar</button>
-      </div>
-      <p class="setup-error" id="setupError">Não encontrei essa sala. Confira o código.</p>
+    <div class="picker">
+      <span class="section-label">Escolha o seu time:</span>
+      <div class="chip-row" id="chipRow"></div>
     </div>
+    <div id="mapSection" class="hidden">
+      <span class="section-label">Mapa do seu time:</span>
+      <div class="map-list" id="mapList"></div>
+    </div>
+    <div class="placeholder" id="placeholder">Selecione o seu time acima para continuar.</div>
   </div>
 
-  <!-- MAIN APP -->
-  <div id="mainScreen" class="hidden">
-    <div class="room-badge">
-      <span>Sala:</span>
-      <span class="code" id="roomCodeLabel">—</span>
-      <button id="copyRoomBtn" type="button">Copiar código</button>
-      <button id="leaveRoomBtn" type="button">Trocar</button>
+  <div id="pointsScreen" class="hidden">
+    <div class="top-bar">
+      <span class="info" id="topBarInfo">Time · Mapa</span>
+      <button id="changeSelectionBtn" type="button">Trocar time/mapa</button>
     </div>
 
-    <div id="selectionScreen">
-      <div class="picker">
-        <span class="section-label">Escolha o seu time:</span>
-        <div class="chip-row" id="chipRow"></div>
-      </div>
-      <div id="mapSection" class="hidden">
-        <span class="section-label">Mapa do seu time:</span>
-        <div class="map-list" id="mapList"></div>
-      </div>
-      <div class="placeholder" id="placeholder">Selecione o seu time acima para continuar.</div>
+    <div class="enemy-section">
+      <span class="section-label">Time inimigo — clique quando morrer (trava 60s até renascer):</span>
+      <div class="enemy-row" id="enemyRow"></div>
     </div>
 
-    <div id="pointsScreen" class="hidden">
-      <div class="top-bar">
-        <span class="info" id="topBarInfo">Time · Mapa</span>
-        <button id="changeSelectionBtn" type="button">Trocar time/mapa</button>
-      </div>
-      <div id="pointsHolder" class="points-grid"></div>
-    </div>
+    <div id="pointsHolder" class="points-grid"></div>
   </div>
 
   <footer>
     Cada ponto de cura do mapa tem sua própria contagem de 60s, reiniciada por quem apertar "usei o ponto".<br>
-    A sincronização usa um serviço online gratuito (extendsclass.com) — todos que entrarem na mesma sala veem o mesmo relógio.<br>
+    Este app roda localmente no seu aparelho — sem servidor. Cada pessoa do time controla o próprio relógio.<br>
     "Modo flutuante" abre uma janela clicável por cima de outras janelas (Chrome/Edge atualizados).
   </footer>
 
@@ -306,38 +350,41 @@ const MAPS = [
   {id:"sabaody",      name:"Sabaody Archipelago", points:[{id:"norte",label:"Norte"},{id:"sudoeste",label:"Sudoeste"},{id:"sudeste",label:"Sudeste"}]}
 ];
 
+const ENEMY_SLOTS = [
+  {id:"tank", label:"Tank", color:"#FF5FA8"},
+  {id:"sup",  label:"Sup",  color:"#35C48C"},
+  {id:"p1",   label:"1",    color:"#EAF1F7"},
+  {id:"p2",   label:"2",    color:"#EAF1F7"},
+  {id:"p3",   label:"3",    color:"#EAF1F7"},
+  {id:"p4",   label:"4",    color:"#EAF1F7"}
+];
+
 const CYCLE = 60;
 const RADIUS = 38;
 const CIRC = 2 * Math.PI * RADIUS;
-const API_BASE = "https://json.extendsclass.com/bin";
-const LS_APIKEY = "gvg_api_key";
-const LS_ROOM = "gvg_room_id";
-const LS_PREFS = "gvg_prefs";
-const POLL_MS = 2500;
+const LS_STATE = "gvg_local_state";
+const LS_PREFS = "gvg_local_prefs";
 
-function emptyState(){
-  const maps = {}, points = {};
-  TEAMS.forEach(t=>{ maps[t.id] = null; points[t.id] = {}; });
-  return {maps, points};
+function emptyEnemySlots(){
+  const o = {};
+  ENEMY_SLOTS.forEach(s=>{ o[s.id] = null; });
+  return o;
 }
-function normalizeState(data){
-  const base = emptyState();
-  if(data){
-    if(data.maps) TEAMS.forEach(t=>{ if(data.maps[t.id] !== undefined) base.maps[t.id] = data.maps[t.id]; });
-    if(data.points) TEAMS.forEach(t=>{ if(data.points[t.id]) Object.assign(base.points[t.id], data.points[t.id]); });
-  }
-  return base;
+function emptyState(){
+  const maps = {}, points = {}, enemies = {};
+  TEAMS.forEach(t=>{ maps[t.id] = null; points[t.id] = {}; enemies[t.id] = emptyEnemySlots(); });
+  return {maps, points, enemies};
 }
 
 let state = emptyState();
 let myTeam = null;
 let soundOn = true;
+let nickname = '';
 let alertedFor = {};
-let roomId = null;
-let syncOk = false;
 let pipWin = null;
 
 const chipRow = document.getElementById('chipRow');
+const nickInput = document.getElementById('nickInput');
 const mapSection = document.getElementById('mapSection');
 const mapList = document.getElementById('mapList');
 const placeholder = document.getElementById('placeholder');
@@ -345,39 +392,46 @@ const selectionScreen = document.getElementById('selectionScreen');
 const pointsScreen = document.getElementById('pointsScreen');
 const topBarInfo = document.getElementById('topBarInfo');
 const changeSelectionBtn = document.getElementById('changeSelectionBtn');
+const enemyRow = document.getElementById('enemyRow');
 const pointsHolder = document.getElementById('pointsHolder');
 const alertBanner = document.getElementById('alertBanner');
 const soundBtn = document.getElementById('soundBtn');
 const soundIcon = document.getElementById('soundIcon');
 const soundLabel = document.getElementById('soundLabel');
-const syncDot = document.getElementById('syncDot');
-const syncText = document.getElementById('syncText');
 const pipBtn = document.getElementById('pipBtn');
 const pipLabel = document.getElementById('pipLabel');
 const pipNote = document.getElementById('pipNote');
 
-const setupScreen = document.getElementById('setupScreen');
-const mainScreen = document.getElementById('mainScreen');
-const createRoomBtn = document.getElementById('createRoomBtn');
-const apiKeyInput = document.getElementById('apiKeyInput');
-const joinInput = document.getElementById('joinInput');
-const joinRoomBtn = document.getElementById('joinRoomBtn');
-const setupError = document.getElementById('setupError');
-const roomCodeLabel = document.getElementById('roomCodeLabel');
-const copyRoomBtn = document.getElementById('copyRoomBtn');
-const leaveRoomBtn = document.getElementById('leaveRoomBtn');
-
-function loadPrefsLocal(){
+function loadLocal(){
   try{
-    const raw = localStorage.getItem(LS_PREFS);
-    if(raw){
-      const p = JSON.parse(raw);
-      myTeam = p.myTeam || null;
-      soundOn = p.soundOn !== undefined ? p.soundOn : true;
+    const rawState = localStorage.getItem(LS_STATE);
+    if(rawState){
+      const parsed = JSON.parse(rawState);
+      TEAMS.forEach(t=>{
+        if(parsed.maps && parsed.maps[t.id] !== undefined) state.maps[t.id] = parsed.maps[t.id];
+        if(parsed.points && parsed.points[t.id]) state.points[t.id] = parsed.points[t.id];
+        if(parsed.enemies && parsed.enemies[t.id]) Object.assign(state.enemies[t.id], parsed.enemies[t.id]);
+      });
     }
   }catch(e){}
+  try{
+    const rawPrefs = localStorage.getItem(LS_PREFS);
+    if(rawPrefs){
+      const p = JSON.parse(rawPrefs);
+      myTeam = p.myTeam || null;
+      soundOn = p.soundOn !== undefined ? p.soundOn : true;
+      nickname = p.nickname || '';
+    }
+  }catch(e){}
+  nickInput.value = nickname;
 }
-function savePrefsLocal(){ try{ localStorage.setItem(LS_PREFS, JSON.stringify({myTeam, soundOn})); }catch(e){} }
+function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(state)); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem(LS_PREFS, JSON.stringify({myTeam, soundOn, nickname})); }catch(e){} }
+
+nickInput.addEventListener('input', ()=>{
+  nickname = nickInput.value.trim();
+  savePrefs();
+});
 
 function buildChips(){
   chipRow.innerHTML = TEAMS.map(t=>`<button class="chip" data-team="${t.id}" data-active="false" type="button">${t.name}</button>`).join('');
@@ -393,7 +447,7 @@ function currentMapObj(){ const id = currentMapId(); return MAPS.find(m=>m.id===
 function selectTeam(id){
   myTeam = id;
   renderChips();
-  savePrefsLocal();
+  savePrefs();
   closeFloating();
   if(currentMapId()){
     enterPointsScreen();
@@ -437,22 +491,25 @@ function renderMapSection(){
   });
 }
 
-async function selectMap(mapId){
+function selectMap(mapId){
   state.maps[myTeam] = mapId;
   alertedFor = {};
+  saveState();
   closeFloating();
   enterPointsScreen();
-  await pushPatch({maps:{[myTeam]: mapId}});
 }
 
 function enterPointsScreen(){
   const map = currentMapObj();
   const team = currentTeamObj();
-  if(!map){ selectionScreen.classList.remove('hidden'); pointsScreen.classList.add('hidden'); renderMapSection(); return; }
+  if(!map){ renderMapSection(); return; }
 
   selectionScreen.classList.add('hidden');
   pointsScreen.classList.remove('hidden');
   topBarInfo.innerHTML = `${team.name} <span class="dim">·</span> ${map.name}`;
+
+  buildEnemyRow(document, enemyRow);
+  renderEnemies();
 
   if(map.points.length === 0){
     pointsHolder.innerHTML = `<div class="placeholder">${map.name} não tem pontos de cura para monitorar.</div>`;
@@ -501,182 +558,75 @@ function renderSoundBtn(){
 soundBtn.addEventListener('click', ()=>{
   soundOn = !soundOn;
   renderSoundBtn();
-  savePrefsLocal();
+  savePrefs();
 });
 
-/* ---------- ROOM (extendsclass.com backend) ---------- */
-
-async function createRoom(){
-  const apiKey = apiKeyInput.value.trim();
-  if(!apiKey){
-    setupError.textContent = 'Cole sua chave de API acima antes de criar a sala (veja o link para conseguir uma grátis).';
-    setupError.classList.add('show');
-    return;
-  }
-  localStorage.setItem(LS_APIKEY, apiKey);
-  createRoomBtn.disabled = true;
-  createRoomBtn.textContent = 'Criando...';
-  setupError.classList.remove('show');
-  try{
-    const res = await fetch(API_BASE, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Api-key': apiKey},
-      body: JSON.stringify(emptyState())
-    });
-    if(res.status === 401){
-      setupError.textContent = 'Chave de API inválida. Confira se copiou certinho de extendsclass.com.';
-      setupError.classList.add('show');
-    } else if(!res.ok){
-      throw new Error('fail');
-    } else {
-      const data = await res.json();
-      const id = data && data.id;
-      if(!id) throw new Error('no id');
-      roomId = id;
-      localStorage.setItem(LS_ROOM, roomId);
-      enterMainScreen();
-    }
-  }catch(e){
-    setupError.textContent = 'Não consegui criar a sala agora. Verifique sua internet e tente de novo.';
-    setupError.classList.add('show');
-  }
-  createRoomBtn.disabled = false;
-  createRoomBtn.textContent = 'Criar sala';
-}
-
-async function joinRoom(){
-  const code = joinInput.value.trim();
-  if(!code) return;
-  joinRoomBtn.disabled = true;
-  setupError.classList.remove('show');
-  try{
-    const res = await fetch(`${API_BASE}/${code}`, {headers:{'Accept':'application/json'}});
-    if(!res.ok) throw new Error('not found');
-    const data = await res.json();
-    state = normalizeState(data);
-    roomId = code;
-    localStorage.setItem(LS_ROOM, roomId);
-    enterMainScreen();
-  }catch(e){
-    setupError.textContent = 'Não encontrei essa sala. Confira o código.';
-    setupError.classList.add('show');
-  }
-  joinRoomBtn.disabled = false;
-}
-
-createRoomBtn.addEventListener('click', createRoom);
-joinRoomBtn.addEventListener('click', joinRoom);
-joinInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') joinRoom(); });
-
-copyRoomBtn.addEventListener('click', async ()=>{
-  try{
-    await navigator.clipboard.writeText(roomId);
-    copyRoomBtn.textContent = 'Copiado!';
-    setTimeout(()=>{ copyRoomBtn.textContent = 'Copiar código'; }, 1500);
-  }catch(e){
-    prompt('Copie o código da sala:', roomId);
-  }
-});
-
-leaveRoomBtn.addEventListener('click', ()=>{
-  if(!confirm('Sair desta sala? Você vai precisar do código de novo (ou criar outra) para voltar.')) return;
-  localStorage.removeItem(LS_ROOM);
-  roomId = null;
-  stopPolling();
-  closeFloating();
-  mainScreen.classList.add('hidden');
-  setupScreen.classList.remove('hidden');
-  soundBtn.classList.add('hidden');
-  pipBtn.classList.add('hidden');
-});
-
-function enterMainScreen(){
-  roomCodeLabel.textContent = roomId;
-  setupScreen.classList.add('hidden');
-  mainScreen.classList.remove('hidden');
-  soundBtn.classList.remove('hidden');
-  pipBtn.classList.remove('hidden');
-  renderChips();
-  if(myTeam && currentMapId()){
-    enterPointsScreen();
-  } else if(myTeam){
-    renderMapSection();
-  }
-  startPolling();
-}
-
-/* ---------- SYNC ---------- */
-
-async function fetchState(){
-  try{
-    const res = await fetch(`${API_BASE}/${roomId}`, {headers:{'Accept':'application/json'}});
-    if(!res.ok) throw new Error('bad status');
-    const data = await res.json();
-    state = normalizeState(data);
-    syncOk = true;
-  }catch(e){
-    syncOk = false;
-  }
-  syncDot.classList.toggle('off', !syncOk);
-  syncText.textContent = syncOk ? 'sincronizado com o time' : 'sem conexão — tentando de novo...';
-}
-
-async function pushState(){
-  if(!roomId) return;
-  try{
-    await fetch(`${API_BASE}/${roomId}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(state)
-    });
-  }catch(e){}
-}
-
-async function pushPatch(patch){
-  if(!roomId) return;
-  try{
-    await fetch(`${API_BASE}/${roomId}`, {
-      method: 'PATCH',
-      headers: {'Content-Type':'application/merge-patch+json'},
-      body: JSON.stringify(patch)
-    });
-  }catch(e){}
-}
-
-async function markPointUsed(pointId){
+function markPointUsed(pointId){
   if(!myTeam) return;
   const now = Date.now();
   state.points[myTeam][pointId] = now;
   delete alertedFor[pointId];
+  saveState();
   renderTimers();
-  await pushPatch({points:{[myTeam]:{[pointId]: now}}});
 }
 
-let pollTimer = null;
-function startPolling(){
-  if(pollTimer) return;
-  const tick = async ()=>{
-    const prevMapId = currentMapId();
-    await fetchState();
-    const nowMapId = currentMapId();
-    if(myTeam){
-      if(nowMapId && (nowMapId !== prevMapId || pointsScreen.classList.contains('hidden'))){
-        enterPointsScreen();
-      } else if(nowMapId){
-        renderTimers();
+/* ---------- ENEMY TRACKING ---------- */
+
+function buildEnemyRow(doc, container){
+  if(!container) return;
+  container.innerHTML = ENEMY_SLOTS.map(s => `
+    <div class="enemy-col">
+      <button class="enemy-dot" id="enemy-${s.id}" type="button"></button>
+      <span class="enemy-dot-label">${s.label}</span>
+    </div>
+  `).join('');
+  ENEMY_SLOTS.forEach(s=>{
+    const btn = doc.getElementById(`enemy-${s.id}`);
+    if(btn) btn.addEventListener('click', ()=>markEnemyDead(s.id));
+  });
+}
+
+function markEnemyDead(slotId){
+  if(!myTeam) return;
+  const enemies = state.enemies[myTeam] || (state.enemies[myTeam] = emptyEnemySlots());
+  const start = enemies[slotId];
+  const elapsed = start ? (Date.now() - start) / 1000 : CYCLE;
+  if(elapsed < CYCLE) return;
+  enemies[slotId] = Date.now();
+  saveState();
+  renderEnemies();
+}
+
+function renderEnemies(){
+  if(!myTeam) return;
+  const now = Date.now();
+  const enemies = state.enemies[myTeam] || {};
+  const docs = [document];
+  if(pipWin && !pipWin.closed) docs.push(pipWin.document);
+
+  ENEMY_SLOTS.forEach(s=>{
+    const start = enemies[s.id];
+    const elapsed = start ? (now - start) / 1000 : null;
+    const dead = elapsed !== null && elapsed < CYCLE;
+    const remaining = dead ? Math.max(0, Math.ceil(CYCLE - elapsed)) : null;
+
+    docs.forEach(doc=>{
+      const dot = doc.getElementById(`enemy-${s.id}`);
+      if(!dot) return;
+      if(dead){
+        dot.style.background = '#4D5C6C';
+        dot.style.color = '#E5484D';
+        dot.textContent = remaining;
+        dot.classList.add('dead');
       } else {
-        renderMapSection();
+        dot.style.background = s.color;
+        dot.style.color = '#0A0E13';
+        dot.textContent = s.label;
+        dot.classList.remove('dead');
       }
-    }
-  };
-  tick();
-  pollTimer = setInterval(tick, POLL_MS);
+    });
+  });
 }
-function stopPolling(){
-  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
-}
-
-/* ---------- SOUND / ALERT ---------- */
 
 function playBeep(){
   try{
@@ -703,8 +653,6 @@ function showBanner(text){
   clearTimeout(showBanner._t);
   showBanner._t = setTimeout(()=>{ alertBanner.classList.remove('show'); }, 4000);
 }
-
-/* ---------- TIMERS (main doc + floating doc together) ---------- */
 
 function renderTimers(){
   const map = currentMapObj();
@@ -790,6 +738,10 @@ function buildFloatingDoc(win, map, team){
       .pbtn{border:none;border-radius:7px;padding:9px 12px;font-weight:700;font-size:11px;color:#0A0E13;cursor:pointer;text-transform:uppercase;background:${team.color};flex:none;}
       .pbtn:active{transform:scale(0.96);}
       .fheader{font-size:11px;color:#7E93A7;padding:8px 12px 4px;}
+      .fenemyRow{display:flex;gap:6px;padding:4px 12px 10px;flex-wrap:wrap;border-bottom:1px solid #232D38;}
+      .enemy-dot{width:34px;height:34px;border-radius:50%;flex:none;border:none;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;font-family:monospace;font-weight:700;font-size:11px;}
+      .enemy-dot.dead{cursor:default;}
     </style>
   `;
   const rowsHtml = map.points.map(p => `
@@ -802,10 +754,15 @@ function buildFloatingDoc(win, map, team){
       <button class="pbtn" id="btn-${p.id}" type="button">Usei</button>
     </div>
   `).join('');
-  doc.body.innerHTML = `<div class="fheader">${team.name} · ${map.name}</div>${rowsHtml}`;
+  const enemyHtml = ENEMY_SLOTS.map(s => `<button class="enemy-dot" id="enemy-${s.id}" type="button"></button>`).join('');
+  doc.body.innerHTML = `<div class="fheader">${team.name} · ${map.name}</div><div class="fenemyRow">${enemyHtml}</div>${rowsHtml}`;
   map.points.forEach(p=>{
     doc.getElementById(`btn-${p.id}`).addEventListener('click', ()=>markPointUsed(p.id));
   });
+  ENEMY_SLOTS.forEach(s=>{
+    doc.getElementById(`enemy-${s.id}`).addEventListener('click', ()=>markEnemyDead(s.id));
+  });
+  renderEnemies();
 }
 
 async function toggleFloating(){
@@ -823,7 +780,7 @@ async function toggleFloating(){
   try{
     pipWin = await documentPictureInPicture.requestWindow({
       width: 300,
-      height: Math.min(420, 44 + map.points.length * 68)
+      height: Math.min(460, 70 + map.points.length * 68)
     });
   }catch(e){
     showPipNote('Não foi possível abrir a janela flutuante agora. Tente de novo.', true);
@@ -845,20 +802,31 @@ function closeFloating(){
 }
 pipBtn.addEventListener('click', toggleFloating);
 
-async function init(){
+function tickLoop(){
+  renderTimers();
+  renderEnemies();
+  setInterval(()=>{
+    renderTimers();
+    renderEnemies();
+  }, 1000);
+}
+
+function init(){
   buildChips();
-  loadPrefsLocal();
+  loadLocal();
   renderSoundBtn();
-  const savedKey = localStorage.getItem(LS_APIKEY);
-  if(savedKey) apiKeyInput.value = savedKey;
   if(!('documentPictureInPicture' in window)){
     showPipNote('Modo flutuante clicável requer Chrome ou Edge atualizado (versão 116+) no computador.', true);
   }
-  const savedRoom = localStorage.getItem(LS_ROOM);
-  if(savedRoom){
-    roomId = savedRoom;
-    enterMainScreen();
+  if(myTeam){
+    renderChips();
+    if(currentMapId()){
+      enterPointsScreen();
+    } else {
+      renderMapSection();
+    }
   }
+  tickLoop();
 }
 
 init();
