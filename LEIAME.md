@@ -9,7 +9,7 @@ O Cloudflare publica a versão nova no mesmo link em cerca de 1 minuto.
 ## Senhas (recomendado trocar por Secrets)
 Cloudflare: Workers > gvg-alerta-cura > Settings > Variables and Secrets > Add (tipo Secret):
 `GVG_PASSWORD` (senha do grupo), `ADMIN_USER`, `ADMIN_PASSWORD`.
-Sem os Secrets valem os padrões do worker.js (grupo: Risewin123 · admin: tiopatinhas / admin123).
+Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: tiopatinhas / admin123).
 
 ## Abas
 - **Cura**: marcador de pontos de cura e de mortes dos inimigos, com o rosto dos personagens.

@@ -16,7 +16,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_PASSWORD = "Risewin123";
+const DEFAULT_PASSWORD = "Kahineterno123@";
 const DEFAULT_ADMIN_USER = "tiopatinhas";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
