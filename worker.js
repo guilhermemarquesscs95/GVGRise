@@ -29,6 +29,9 @@ const CHAR_RE = /^[a-z0-9_]{1,40}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_POINTS_PER_TEAM = 32;
 const MAX_PLAYERS = 80;
+const MAX_CARGOS = 20;
+const ROLE_IDS = ["tank", "melee", "ranged", "bruiser", "support", "reserva"];
+const DEFAULT_CARGOS = ["Líder", "Vice-líder", "Oficial", "Membro"];
 const MAX_BATTLES = 5000;
 const MAX_FAILS = 8; // erros de senha por IP...
 const BLOCK_MS = 60_000; // ...antes de esperar 1 minuto
@@ -48,7 +51,27 @@ async function same(given, expected) {
   return crypto.subtle.timingSafeEqual(a, b);
 }
 
-function sanitizePlayers(list) {
+function cleanRoles(list, legacyReserve) {
+  const out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    if (ROLE_IDS.includes(r) && !out.includes(r)) out.push(r);
+  }
+  if (legacyReserve && !out.includes("reserva")) out.push("reserva");
+  return ROLE_IDS.filter((r) => out.includes(r));
+}
+
+function sanitizeCargos(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const c of list.slice(0, MAX_CARGOS)) {
+    const name = cleanText(c, 24);
+    if (name && !out.some((x) => x.toLowerCase() === name.toLowerCase())) out.push(name);
+  }
+  return out;
+}
+
+// membros: nick + funções (várias) + cargo (um, tem que existir na lista de cargos)
+function sanitizePlayers(list, cargos) {
   if (!Array.isArray(list)) return null;
   const out = [];
   const seen = new Set();
@@ -58,7 +81,9 @@ function sanitizePlayers(list) {
     const key = nick.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ nick, reserve: !!(p && p.reserve) });
+    const asked = cleanText(p && p.cargo, 24);
+    const cargo = cargos.find((c) => c.toLowerCase() === asked.toLowerCase()) || "";
+    out.push({ nick, roles: cleanRoles(p && p.roles, p && p.reserve), cargo });
   }
   return out;
 }
@@ -101,6 +126,7 @@ export class Room extends DurableObject {
     super(ctx, env);
     this.data = null;
     this.roster = null;
+    this.cargos = null;
     this.fails = new Map(); // ip -> { n, until }
     // "ping" -> "pong" sem acordar o objeto (mantém a conexão viva sem custo)
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
@@ -120,8 +146,17 @@ export class Room extends DurableObject {
   }
 
   async getRoster() {
-    if (!this.roster) this.roster = (await this.ctx.storage.get("roster")) || [];
+    if (!this.roster) {
+      const saved = (await this.ctx.storage.get("roster")) || [];
+      // versão antiga guardava só { nick, reserve }
+      this.roster = saved.map((p) => ({ nick: p.nick, roles: cleanRoles(p.roles, p.reserve), cargo: p.cargo || "" }));
+    }
     return this.roster;
+  }
+
+  async getCargos() {
+    if (!this.cargos) this.cargos = (await this.ctx.storage.get("cargos")) || [...DEFAULT_CARGOS];
+    return this.cargos;
   }
 
   async getBattles() {
@@ -248,9 +283,10 @@ export class Room extends DurableObject {
       a.team = TEAM_IDS.includes(String(msg.team ?? "")) ? String(msg.team) : null;
       ws.serializeAttachment(a);
       const data = await this.getData();
+      const cargos = await this.getCargos();
       ws.send(JSON.stringify({ t: "login_ok", you: a.id, nick, admin: isAdmin }));
       ws.send(
-        JSON.stringify({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster }),
+        JSON.stringify({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos }),
       );
       this.broadcast({ t: "presence", presence: this.presence() }, ws);
       return;
@@ -361,13 +397,17 @@ export class Room extends DurableObject {
         return;
       }
 
-      case "roster_set": {
+      // cadastro da aliança: membros (nick, funções, cargo) e a lista de cargos
+      case "alliance_set": {
         if (!a.admin) return ws.send(JSON.stringify({ t: "denied" }));
-        const players = sanitizePlayers(msg.players);
+        const cargos = sanitizeCargos(msg.cargos);
+        if (!cargos) return;
+        const players = sanitizePlayers(msg.players, cargos);
         if (!players) return;
         this.roster = players;
-        await this.ctx.storage.put("roster", players);
-        this.broadcast({ t: "roster", roster: players });
+        this.cargos = cargos;
+        await this.ctx.storage.put({ roster: players, cargos });
+        this.broadcast({ t: "alliance", roster: players, cargos });
         return;
       }
 

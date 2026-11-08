@@ -76,7 +76,8 @@ function normalizeState(data){
 }
 
 let state = emptyState();     // vem do servidor
-let roster = [];              // jogadores cadastrados (depois do login): [{nick, reserve}]
+let roster = [];              // membros cadastrados (depois do login): [{nick, roles:[], cargo}]
+let cargos = [];              // cargos da aliança, na ordem de exibição
 let publicRoster = [];        // só os nicks, para a tela de login
 let presence = [];            // quem está conectado: [{id, nick, team}]
 let myId = null;              // id do meu socket (o servidor informa)
@@ -113,7 +114,7 @@ const pipBtn = $('pipBtn'), pipLabel = $('pipLabel'), pipNote = $('pipNote');
 const syncDot = $('syncDot'), syncText = $('syncText');
 const loginScreen = $('loginScreen'), bootScreen = $('bootScreen'), loginNick = $('loginNick'), loginPass = $('loginPass');
 const loginBtn = $('loginBtn'), loginError = $('loginError'), userName = $('userName'), logoutBtn = $('logoutBtn');
-const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabAnalise = $('tabAnalise'), tabJogadores = $('tabJogadores');
+const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca');
 
 /* ---------- preferências locais (nick, senha, time e som ficam neste aparelho) ---------- */
 
@@ -249,8 +250,8 @@ function onServerMessage(ev){
     case 'denied':
       showBanner('Só o admin pode fazer isso.', true);
       return;
-    case 'roster':
-      setRoster(msg.roster);
+    case 'alliance':
+      setAlliance(msg.roster, msg.cargos);
       return;
     case 'battles': onBattles(msg.list || []); return;
     case 'battles_dirty': onBattlesDirty(); return;
@@ -264,7 +265,7 @@ function onServerMessage(ev){
       }
       if(msg.you) myId = msg.you;
       if(msg.presence) presence = msg.presence;
-      if(msg.roster) setRoster(msg.roster);
+      if(msg.roster) setAlliance(msg.roster, msg.cargos);
       const prevMap = currentMapId();
       state = normalizeState(msg.data);
       gotState = true;
@@ -279,8 +280,9 @@ function onServerMessage(ev){
   }
 }
 
-function setRoster(list){
+function setAlliance(list, cargoList){
   roster = Array.isArray(list) ? list : [];
+  if(Array.isArray(cargoList)) cargos = cargoList;
   publicRoster = roster.map(p => p.nick);
   if(typeof onRosterChanged === 'function') onRosterChanged();
 }
@@ -319,7 +321,7 @@ function setMode(m){
   } else {
     selectionScreen.classList.add('hidden');
     pointsScreen.classList.add('hidden');
-    tabCura.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabJogadores.classList.add('hidden');
+    tabCura.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden');
     closeFloating();
     closePicker();
     if(m === 'boot') bootScreen.textContent = `Entrando como ${nickname || 'Admin'}...`;
@@ -328,19 +330,17 @@ function setMode(m){
 }
 
 function setTab(t){
-  if(t === 'jogadores' && !isAdmin) t = 'cura';
   currentTab = t;
   applyTab();
 }
 function applyTab(){
   if(uiMode !== 'app') return;
-  if(currentTab === 'jogadores' && !isAdmin) currentTab = 'cura';
   tabCura.classList.toggle('hidden', currentTab !== 'cura');
   tabAnalise.classList.toggle('hidden', currentTab !== 'analise');
-  tabJogadores.classList.toggle('hidden', currentTab !== 'jogadores');
+  tabAlianca.classList.toggle('hidden', currentTab !== 'alianca');
   tabsBar.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === currentTab ? 'true' : 'false'));
   if(currentTab === 'analise') enterAnalysis();
-  if(currentTab === 'jogadores') renderRosterTab();
+  if(currentTab === 'alianca') renderAlliance();
 }
 tabsBar.addEventListener('click', (e)=>{
   const b = e.target.closest('.tab');
@@ -484,7 +484,6 @@ logoutBtn.addEventListener('click', logout);
 function updateAdminUI(){
   adminBtn.innerHTML = isAdmin ? '&#128081; Admin &middot; sair' : '&#128273; Admin';
   adminBtn.classList.toggle('admin-on', isAdmin);
-  $('tabJogadoresBtn').classList.toggle('hidden', !isAdmin);
   if(uiMode === 'app') applyTab();
   if(typeof onAdminChanged === 'function') onAdminChanged();
 }

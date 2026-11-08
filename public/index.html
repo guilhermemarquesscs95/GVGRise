@@ -3,17 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GVG · Painel We Sink</title>
+<title>QG We Sink</title>
+<link rel="icon" href="logo.webp?v=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">GVG · We Sink</p>
-    <h1>Painel de GVG</h1>
+    <div class="brand">
+      <img class="brand-logo" src="logo.webp?v=1" alt="Bandeira da We Sink" width="64" height="46">
+      <div>
+        <p class="eyebrow">Quartel-general</p>
+        <h1>We Sink</h1>
+      </div>
+    </div>
     <div class="status-line">
       <span><span class="status-dot off" id="syncDot"></span><span id="syncText">conectando...</span></span>
       <span class="header-btns">
@@ -34,6 +40,7 @@
 
   <div id="loginScreen" class="hidden narrow">
     <div class="login-card">
+      <img class="login-logo" src="logo.webp?v=1" alt="" width="120" height="86">
       <h2>Entrar</h2>
       <p class="sub" id="loginSub">Escolha o seu nick e digite a senha do grupo.</p>
       <div id="nickPickWrap">
@@ -54,7 +61,7 @@
   <nav class="tabs hidden" id="tabsBar" role="tablist">
     <button class="tab" role="tab" data-tab="cura" type="button">Cura</button>
     <button class="tab" role="tab" data-tab="analise" type="button">Análise</button>
-    <button class="tab hidden" role="tab" data-tab="jogadores" type="button" id="tabJogadoresBtn">Jogadores</button>
+    <button class="tab" role="tab" data-tab="alianca" type="button">Aliança</button>
   </nav>
 
   <!-- ===== aba Cura ===== -->
@@ -98,8 +105,8 @@
   <!-- ===== aba Análise ===== -->
   <div id="tabAnalise" class="hidden"></div>
 
-  <!-- ===== aba Jogadores (admin) ===== -->
-  <div id="tabJogadores" class="narrow hidden"></div>
+  <!-- ===== aba Aliança ===== -->
+  <div id="tabAlianca" class="hidden"></div>
 
   <footer>
     Tudo sincroniza em tempo real entre quem estiver no mesmo time: mapa, pontos de cura, inimigos e personagens.<br>
@@ -113,8 +120,9 @@
 
 <script src="chars.js?v=1"></script>
 <script src="faces.js?v=2"></script>
-<script src="app.js?v=2"></script>
-<script src="analysis.js?v=2"></script>
+<script src="app.js?v=3"></script>
+<script src="analysis.js?v=3"></script>
+<script src="alliance.js?v=3"></script>
 <script>init();</script>
 </body>
 </html>

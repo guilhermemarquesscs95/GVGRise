@@ -28,10 +28,10 @@ function onBattles(list){
 function onBattlesDirty(){ send({t:'get_battles'}, true); }
 function onAdminChanged(){
   if(currentTab === 'analise') renderAnalysis();
-  if(currentTab === 'jogadores') renderRosterTab();
+  if(currentTab === 'alianca') renderAlliance();
 }
 function onRosterChanged(){
-  if(currentTab === 'jogadores') renderRosterTab();
+  if(currentTab === 'alianca') renderAlliance();
 }
 function onLiveStateChanged(){}
 
@@ -210,7 +210,7 @@ function playersCard(list){
   });
   const rows = [...per].map(([nick, e]) => ({nick, ...tally(e.battles), top: [...e.chars].sort((a, b) => b[1] - a[1]).slice(0, 3)})).sort((a, b) => b.n - a.n || a.nick.localeCompare(b.nick));
   const trs = rows.map(r => `<tr>
-      <td><div class="name"><span>${esc(r.nick)}</span></div></td>
+      <td><div class="name"><span>${esc(r.nick)}</span>${roleBadges(r.nick)}</div></td>
       <td class="num">${r.n}</td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td>
       <td>${facesInline(r.top.map(t => t[0]), 26)}</td></tr>`).join('');
   return `<div class="an-card"><h3>Jogadores</h3><p class="sub">Presença e resultado de cada um, com os 3 personagens que mais usou.</p>
@@ -523,55 +523,3 @@ function onBattleError(){
   const n = $('fSaveNext'); if(n) n.disabled = false;
   formErr('Não foi possível salvar. Confira os campos e tente de novo.');
 }
-
-/* ---------- aba Jogadores (admin) ---------- */
-
-function pushRoster(list){
-  roster = list;
-  publicRoster = list.map(p => p.nick);
-  send({t: 'roster_set', players: list});
-  renderRosterTab();
-}
-
-function renderRosterTab(){
-  if(!isAdmin){ tabJogadores.innerHTML = ''; return; }
-  const list = [...roster].sort((a, b) => Number(a.reserve) - Number(b.reserve) || a.nick.localeCompare(b.nick));
-  const titulares = list.filter(p => !p.reserve).length;
-  tabJogadores.innerHTML = `
-    <div class="an-card">
-      <h3>Jogadores da We Sink</h3>
-      <p class="sub">Cadastre os nicks. Depois de cadastrar, a tela de login passa a mostrar só esta lista para as pessoas escolherem o nick (quem não está na lista não entra). Você pode colar vários nicks separados por vírgula ou em linhas diferentes.</p>
-      <div class="roster-add">
-        <input class="nick-input" id="rosterNew" type="text" maxlength="400" placeholder="Digite um nick (ou vários separados por vírgula)">
-        <button class="primary-btn" id="rosterAdd" type="button">Adicionar</button>
-      </div>
-      <div class="small-dim" style="margin-bottom:10px">${list.length} jogador${list.length === 1 ? '' : 'es'} · ${titulares} titular${titulares === 1 ? '' : 'es'} · ${list.length - titulares} reserva${list.length - titulares === 1 ? '' : 's'}</div>
-      <div class="roster-list">
-        ${list.map(p => `<div class="roster-item"><b>${esc(p.nick)}</b>
-          <label><input type="checkbox" data-nick="${esc(p.nick)}" ${p.reserve ? 'checked' : ''}> reserva</label>
-          <button class="x" type="button" data-del="${esc(p.nick)}" title="Remover">&#10005;</button></div>`).join('') || '<div class="empty-box">Nenhum jogador cadastrado ainda. Enquanto a lista estiver vazia, qualquer pessoa pode digitar o nick no login.</div>'}
-      </div>
-    </div>`;
-  const input = $('rosterNew');
-  const add = () => {
-    const names = input.value.split(/[,;\n]/).map(s => s.replace(/[<>]/g, '').trim().slice(0, 20)).filter(s => s.length >= 2);
-    if(!names.length) return;
-    const cur = [...roster];
-    names.forEach(n => { if(!cur.some(p => p.nick.toLowerCase() === n.toLowerCase())) cur.push({nick: n, reserve: false}); });
-    pushRoster(cur);
-    $('rosterNew').focus();
-  };
-  $('rosterAdd').addEventListener('click', add);
-  input.addEventListener('keydown', e => { if(e.key === 'Enter') add(); });
-}
-tabJogadores.addEventListener('click', (e) => {
-  const del = e.target.closest('[data-del]');
-  if(del){
-    const n = del.dataset.del;
-    if(confirm(`Remover ${n} da lista de jogadores? (As batalhas já lançadas continuam com o nome dele.)`)) pushRoster(roster.filter(p => p.nick !== n));
-  }
-});
-tabJogadores.addEventListener('change', (e) => {
-  const cb = e.target.closest('input[type=checkbox][data-nick]');
-  if(cb) pushRoster(roster.map(p => p.nick === cb.dataset.nick ? {...p, reserve: cb.checked} : p));
-});
