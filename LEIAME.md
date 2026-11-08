@@ -1,31 +1,24 @@
-# GVG · Alerta de Cura (Cloudflare)
+# Painel de GVG · We Sink
 
-Site + servidor em tempo real, tudo no plano gratuito do Cloudflare.
+## Como atualizar (GitHub -> Cloudflare publica sozinho)
+1. No repositório `GVGRise`, clique em **Add file > Upload files**.
+2. Arraste para lá **o conteúdo desta pasta**: `worker.js` e a pasta `public` inteira
+   (index.html, style.css, app.js, analysis.js, faces.js, chars.js, chars.webp).
+   Se o GitHub perguntar, substitua os arquivos que já existem.
+3. Clique em **Commit changes**. Em ~1 minuto o Cloudflare publica a versão nova no mesmo link.
 
-## Arquivos
-- `public/index.html` — o app (o que o pessoal abre no navegador)
-- `worker.js` — servidor: confere o login, guarda o estado do time e avisa todo mundo na hora
-- `wrangler.jsonc` — configuração do Cloudflare (o nome `gvg-alerta-cura` precisa ser igual ao nome do projeto no painel)
+## Senhas (recomendado trocar por Secrets)
+Como o repositório é público, as senhas padrão ficam visíveis no código.
+No Cloudflare: Workers > gvg-alerta-cura > Settings > Variables and Secrets > Add (tipo **Secret**):
+- `GVG_PASSWORD`   senha do grupo (a que todos digitam para entrar)
+- `ADMIN_USER`     usuário do admin
+- `ADMIN_PASSWORD` senha do admin
+Sem os Secrets valem os padrões do worker.js (grupo: Risewin123 · admin: tiopatinhas / admin123).
 
-## Login
-Quem abre o site digita **nick + senha**. A senha é conferida no servidor (não dá para burlar pela página).
-- Senha padrão: `Risewin123` (está no começo do `worker.js`).
-- Depois de entrar, o aparelho lembra o login. O botão **Sair** apaga a senha salva.
-- Depois de 8 senhas erradas seguidas, aquele IP espera 1 minuto.
-
-### Trocar a senha depois (sem mexer no código)
-Painel do Cloudflare > Workers & Pages > gvg-alerta-cura > Settings > Variables and Secrets > Add:
-tipo **Secret**, nome `GVG_PASSWORD`, valor = a senha nova. Quando existir, ela vale no lugar da padrão,
-e quem já estava logado com a senha antiga precisa entrar de novo.
-(Use *Secret*: variáveis comuns criadas no painel podem ser apagadas no próximo deploy.)
-
-## Como publicar
-1. Suba estes 3 itens (`wrangler.jsonc`, `worker.js` e a pasta `public`) no repositório do GitHub.
-2. No Cloudflare: Workers & Pages > Create application > Import a repository > escolha o repositório.
-3. Nome do projeto: `gvg-alerta-cura` | comando de build: vazio | comando de deploy: `npx wrangler deploy`.
-4. Save and Deploy. O endereço final aparece no fim (algo como `gvg-alerta-cura.SEU-NOME.workers.dev`).
-
-Depois disso, todo upload novo no GitHub republica o site sozinho.
-
-## Dica de teste
-Abrindo `SEU-ENDERECO/?room=teste` você usa uma sala separada, sem mexer no estado real do grupo.
+## Como usar
+- **Admin**: botão "Admin" no canto superior direito. Libera a aba Jogadores e o lançamento/edição de batalhas.
+- **Jogadores**: o admin cadastra os nicks (pode colar vários separados por vírgula). A tela de login passa a mostrar só essa lista.
+- **Cura**: marcador de mortes com rosto. "Escolher personagens" preenche em sequência (digite o nome + Enter);
+  segurar uma bolinha troca só aquele personagem. Funciona também na janela flutuante (botão lápis).
+- **Análise**: o admin lança cada batalha (mapa, aliança, resultado, nossa comp. e a do rival).
+  "Importar do marcador" copia os rivais marcados durante o jogo.
