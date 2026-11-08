@@ -1,14 +1,10 @@
 /* ---------- dados fixos ---------- */
 
 const TEAMS = [
-  {id:"1", name:"Time 1", color:"#E5484D"},
-  {id:"2", name:"Time 2", color:"#3E8EF7"},
-  {id:"3", name:"Time 3", color:"#35C48C"},
-  {id:"4", name:"Time 4", color:"#E8B339"},
-  {id:"5", name:"Time 5", color:"#9B6BFF"},
-  {id:"6", name:"Time 6", color:"#FF8A3D"},
-  {id:"7", name:"Time 7", color:"#FF5FA8"},
-  {id:"8", name:"Time 8", color:"#38D9E0"}
+  {id:"1", name:"Equipe 1", color:"#E5484D"},
+  {id:"2", name:"Equipe 2", color:"#3E8EF7"},
+  {id:"3", name:"Equipe 3", color:"#35C48C"},
+  {id:"4", name:"Equipe 4", color:"#E8B339"}
 ];
 
 const MAPS = [
@@ -77,6 +73,8 @@ function normalizeState(data){
 
 let state = emptyState();     // vem do servidor
 let roster = [];              // membros cadastrados (depois do login): [{nick, roles:[], cargo}]
+let plan = null;              // escala das equipes: {teams:{'1':{map,slots,reserves,leader,confirmed}}}
+let justLoggedIn = false;     // true até chegar o primeiro estado depois do login
 let cargos = [];              // cargos da aliança, na ordem de exibição
 let publicRoster = [];        // só os nicks, para a tela de login
 let presence = [];            // quem está conectado: [{id, nick, team}]
@@ -114,7 +112,7 @@ const pipBtn = $('pipBtn'), pipLabel = $('pipLabel'), pipNote = $('pipNote');
 const syncDot = $('syncDot'), syncText = $('syncText');
 const loginScreen = $('loginScreen'), bootScreen = $('bootScreen'), loginNick = $('loginNick'), loginPass = $('loginPass');
 const loginBtn = $('loginBtn'), loginError = $('loginError'), userName = $('userName'), logoutBtn = $('logoutBtn');
-const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca');
+const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca');
 
 /* ---------- preferências locais (nick, senha, time e som ficam neste aparelho) ---------- */
 
@@ -123,7 +121,7 @@ function loadPrefs(){
     const raw = localStorage.getItem(LS_PREFS);
     if(raw){
       const p = JSON.parse(raw);
-      myTeam = p.myTeam || null;
+      myTeam = TEAMS.some(t => t.id === p.myTeam) ? p.myTeam : null;
       soundOn = p.soundOn !== undefined ? p.soundOn : true;
       nickname = p.nickname || '';
       password = p.password || '';
@@ -228,6 +226,7 @@ function onServerMessage(ev){
       clearTimeout(bootTimer);
       if(msg.nick) nickname = msg.nick;
       isAdmin = !!msg.admin;
+      justLoggedIn = true;
       if(adminAttempt){ adminAttempt = false; closeModal(); }
       savePrefs();
       setConn(true);
@@ -250,6 +249,9 @@ function onServerMessage(ev){
     case 'denied':
       showBanner('Só o admin pode fazer isso.', true);
       return;
+    case 'plan':
+      setPlan(msg.plan);
+      return;
     case 'alliance':
       setAlliance(msg.roster, msg.cargos);
       return;
@@ -266,9 +268,11 @@ function onServerMessage(ev){
       if(msg.you) myId = msg.you;
       if(msg.presence) presence = msg.presence;
       if(msg.roster) setAlliance(msg.roster, msg.cargos);
+      if(msg.plan) setPlan(msg.plan);
       const prevMap = currentMapId();
       state = normalizeState(msg.data);
       gotState = true;
+      if(justLoggedIn){ justLoggedIn = false; autoPickMyTeam(); }
       if(uiMode !== 'app') setMode('app');
       onStateChanged(prevMap);
       return;
@@ -292,7 +296,7 @@ function onStateChanged(prevMap){
   if(myTeam){
     if(cur && !browsing && cur !== prevMap){
       alertedFor = {};
-      enterPointsScreen();            // alguém do time escolheu (ou trocou) o mapa
+      enterPointsScreen();            // alguém da equipe escolheu (ou trocou) o mapa
     } else if(cur && !browsing && pointsScreen.classList.contains('hidden')){
       enterPointsScreen();
     } else if(!cur && !browsing){
@@ -321,7 +325,7 @@ function setMode(m){
   } else {
     selectionScreen.classList.add('hidden');
     pointsScreen.classList.add('hidden');
-    tabCura.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden');
+    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden');
     closeFloating();
     closePicker();
     if(m === 'boot') bootScreen.textContent = `Entrando como ${nickname || 'Admin'}...`;
@@ -336,11 +340,14 @@ function setTab(t){
 function applyTab(){
   if(uiMode !== 'app') return;
   tabCura.classList.toggle('hidden', currentTab !== 'cura');
+  tabEquipes.classList.toggle('hidden', currentTab !== 'equipes');
   tabAnalise.classList.toggle('hidden', currentTab !== 'analise');
   tabAlianca.classList.toggle('hidden', currentTab !== 'alianca');
   tabsBar.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === currentTab ? 'true' : 'false'));
   if(currentTab === 'analise') enterAnalysis();
   if(currentTab === 'alianca') renderAlliance();
+  if(currentTab === 'equipes') renderTeams();
+  if(currentTab === 'cura') renderMyTeamCard();
 }
 tabsBar.addEventListener('click', (e)=>{
   const b = e.target.closest('.tab');
@@ -593,7 +600,7 @@ function renderMapSection(){
   if(!myTeam){
     mapSection.classList.add('hidden');
     placeholder.classList.remove('hidden');
-    placeholder.textContent = 'Selecione o seu time acima para continuar.';
+    placeholder.textContent = 'Selecione a sua equipe acima para continuar.';
     return;
   }
   if(!gotState){
@@ -604,12 +611,13 @@ function renderMapSection(){
   }
   mapSection.classList.remove('hidden');
   placeholder.classList.remove('hidden');
-  placeholder.textContent = 'Selecione o mapa do seu time acima.';
+  placeholder.textContent = 'Selecione o mapa da sua equipe acima.';
   const activeMapId = currentMapId();
   const team = currentTeamObj();
+  const planned = plannedMapFor(myTeam);
   mapList.innerHTML = MAPS.map(m=>`
     <button class="map-btn" data-map="${m.id}" data-active="${m.id===activeMapId}" style="--accent:${team.color}" type="button">
-      <span class="map-name">${m.name}</span>
+      <span class="map-name">${m.name}${m.id === planned ? ' <span class="plan-tag">mapa da equipe</span>' : ''}</span>
       <span class="map-badge">${m.points.length === 0 ? 'sem cura' : m.points.length + ' ponto' + (m.points.length>1?'s':'')}</span>
     </button>
   `).join('');
@@ -701,7 +709,7 @@ function renderPresence(){
     if(!others.includes(p.nick)) others.push(p.nick);
   });
   const all = (me ? [`${me.nick} (você)`] : []).concat(others);
-  presenceLine.textContent = all.length ? `Online no time (${all.length}): ${all.join(', ')}` : '';
+  presenceLine.textContent = all.length ? `Online na equipe (${all.length}): ${all.join(', ')}` : '';
 }
 
 /* ---------- som e alertas ---------- */
@@ -1024,7 +1032,7 @@ async function toggleFloating(){
   const map = currentMapObj();
   const team = currentTeamObj();
   if(!myTeam || !map){
-    showPipNote('Selecione um time e um mapa antes de abrir o modo flutuante.', true);
+    showPipNote('Selecione uma equipe e um mapa antes de abrir o modo flutuante.', true);
     return;
   }
   try{

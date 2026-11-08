@@ -22,7 +22,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const CYCLE_MS = 60_000; // tempo de renascimento (cura e inimigos)
 const POINT_DEBOUNCE_MS = 5_000; // ignora duplo clique de dois jogadores no mesmo ponto
-const TEAM_IDS = ["1", "2", "3", "4", "5", "6", "7", "8"];
+const TEAM_IDS = ["1", "2", "3", "4"]; // o jogo só permite 4 equipes
 const ENEMY_SLOTS = ["tank", "sup", "p1", "p2", "p3", "p4"];
 const ID_RE = /^[a-z0-9_]{1,24}$/;
 const CHAR_RE = /^[a-z0-9_]{1,40}$/;
@@ -30,6 +30,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_POINTS_PER_TEAM = 32;
 const MAX_PLAYERS = 80;
 const MAX_CARGOS = 20;
+const MAIN_SLOTS = 6; // titulares de cada equipe: Tank, Suporte, DPS Ranged + 3 (DPS Melee ou Bruiser)
+const RESERVE_SLOTS = 2;
 const ROLE_IDS = ["tank", "melee", "ranged", "bruiser", "support", "reserva"];
 const DEFAULT_CARGOS = ["Líder", "Vice-líder", "Oficial", "Membro"];
 const MAX_BATTLES = 5000;
@@ -88,6 +90,36 @@ function sanitizePlayers(list, cargos) {
   return out;
 }
 
+// escala das equipes: { "1": { map, slots[6], reserves[2], leader, confirmed }, ... }
+function emptyTeamPlan() {
+  return { map: "", slots: Array(MAIN_SLOTS).fill(""), reserves: Array(RESERVE_SLOTS).fill(""), leader: "", confirmed: false };
+}
+function emptyPlan() {
+  const teams = {};
+  for (const t of TEAM_IDS) teams[t] = emptyTeamPlan();
+  return { teams };
+}
+function sanitizeTeamPlan(raw, roster) {
+  const canon = (n) => {
+    const q = cleanNick(n).toLowerCase();
+    const hit = q && roster.find((p) => p.nick.toLowerCase() === q);
+    return hit ? hit.nick : "";
+  };
+  const used = new Set();
+  const pickOne = (n) => {
+    const c = canon(n);
+    if (!c || used.has(c)) return "";
+    used.add(c);
+    return c;
+  };
+  const r = raw && typeof raw === "object" ? raw : {};
+  const slots = Array.from({ length: MAIN_SLOTS }, (_, i) => pickOne((r.slots || [])[i]));
+  const reserves = Array.from({ length: RESERVE_SLOTS }, (_, i) => pickOne((r.reserves || [])[i]));
+  const leader = [...slots, ...reserves].includes(canon(r.leader)) ? canon(r.leader) : "";
+  const map = ID_RE.test(String(r.map ?? "")) ? String(r.map) : "";
+  return { map, slots, reserves, leader, confirmed: !!r.confirmed };
+}
+
 function sanitizeBattle(b) {
   if (!b || typeof b !== "object") return null;
   const date = String(b.date ?? "");
@@ -127,6 +159,7 @@ export class Room extends DurableObject {
     this.data = null;
     this.roster = null;
     this.cargos = null;
+    this.plan = null;
     this.fails = new Map(); // ip -> { n, until }
     // "ping" -> "pong" sem acordar o objeto (mantém a conexão viva sem custo)
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
@@ -152,6 +185,12 @@ export class Room extends DurableObject {
       this.roster = saved.map((p) => ({ nick: p.nick, roles: cleanRoles(p.roles, p.reserve), cargo: p.cargo || "" }));
     }
     return this.roster;
+  }
+
+  async getPlan() {
+    if (!this.plan) this.plan = (await this.ctx.storage.get("plan")) || emptyPlan();
+    for (const t of TEAM_IDS) this.plan.teams[t] ||= emptyTeamPlan();
+    return this.plan;
   }
 
   async getCargos() {
@@ -284,9 +323,10 @@ export class Room extends DurableObject {
       ws.serializeAttachment(a);
       const data = await this.getData();
       const cargos = await this.getCargos();
+      const plan = await this.getPlan();
       ws.send(JSON.stringify({ t: "login_ok", you: a.id, nick, admin: isAdmin }));
       ws.send(
-        JSON.stringify({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos }),
+        JSON.stringify({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos, plan }),
       );
       this.broadcast({ t: "presence", presence: this.presence() }, ws);
       return;
@@ -408,6 +448,42 @@ export class Room extends DurableObject {
         this.cargos = cargos;
         await this.ctx.storage.put({ roster: players, cargos });
         this.broadcast({ t: "alliance", roster: players, cargos });
+        // quem saiu da aliança sai também das equipes
+        const plan = await this.getPlan();
+        let changed = false;
+        for (const t of TEAM_IDS) {
+          const clean = sanitizeTeamPlan(plan.teams[t], players);
+          if (JSON.stringify(clean) !== JSON.stringify(plan.teams[t])) {
+            plan.teams[t] = { ...clean, confirmed: false };
+            changed = true;
+          }
+        }
+        if (changed) {
+          await this.ctx.storage.put("plan", plan);
+          this.broadcast({ t: "plan", plan });
+        }
+        return;
+      }
+
+      // escala de uma equipe (admin). Quem for colocado aqui sai das outras equipes.
+      case "plan_set": {
+        if (!a.admin) return ws.send(JSON.stringify({ t: "denied" }));
+        if (!TEAM_IDS.includes(team)) return;
+        const roster = await this.getRoster();
+        const plan = await this.getPlan();
+        const mine = sanitizeTeamPlan(msg.plan, roster);
+        const taken = new Set([...mine.slots, ...mine.reserves].filter(Boolean));
+        plan.teams[team] = mine;
+        for (const t of TEAM_IDS) {
+          if (t === team) continue;
+          const o = plan.teams[t];
+          const hit = [...o.slots, ...o.reserves].some((n) => taken.has(n));
+          if (!hit) continue;
+          const rm = (n) => (taken.has(n) ? "" : n);
+          plan.teams[t] = sanitizeTeamPlan({ ...o, slots: o.slots.map(rm), reserves: o.reserves.map(rm), confirmed: false }, roster);
+        }
+        await this.ctx.storage.put("plan", plan);
+        this.broadcast({ t: "plan", plan });
         return;
       }
 

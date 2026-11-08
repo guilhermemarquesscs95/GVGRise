@@ -1,13 +1,28 @@
 /* ================= Aliança: membros, funções e cargos ================= */
 
 const ROLES = [
-  {id: 'tank',    label: 'Tank',       color: '#3E8EF7'},
-  {id: 'melee',   label: 'DPS Melee',  color: '#E5484D'},
-  {id: 'ranged',  label: 'DPS Ranged', color: '#FF8A3D'},
-  {id: 'bruiser', label: 'Bruiser',    color: '#9B6BFF'},
+  {id: 'tank',    label: 'Tank',       color: '#2FB8F5'},
+  {id: 'melee',   label: 'DPS Melee',  color: '#FF8A3D'},
+  {id: 'ranged',  label: 'DPS Ranged', color: '#FF5C7A'},
+  {id: 'bruiser', label: 'Bruiser',    color: '#E8B339'},
   {id: 'support', label: 'Support',    color: '#35C48C'},
-  {id: 'reserva', label: 'Reserva',    color: '#7E93A7'}
+  {id: 'reserva', label: 'Reserva',    color: '#8A99A8'}
 ];
+// ícones das funções (desenhados em traço, herdam a cor da função)
+const ROLE_ICON_PATHS = {
+  tank:    '<path d="M12 3l7.5 3v5.2c0 4.6-3.1 7.9-7.5 9.8-4.4-1.9-7.5-5.2-7.5-9.8V6z"/>',
+  melee:   '<path d="M17.5 3H21v3.5L10.5 17 7 13.5z"/><path d="M5.5 14.5l4 4"/><path d="M4 20l2.5-2.5"/>',
+  ranged:  '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/>',
+  bruiser: '<path d="M13.5 3.5l7 7-3 3-7-7z"/><path d="M12 9l-7.5 7.5a1.6 1.6 0 0 0 2.3 2.3L14.3 11"/>',
+  support: '<path d="M12 20.5s-7.5-4.6-7.5-10.3a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5.7-7.5 10.3-7.5 10.3z"/>',
+  reserva: '<circle cx="9" cy="8" r="3.6"/><path d="M2.5 20.5c0-3.7 2.9-6.1 6.5-6.1s6.5 2.4 6.5 6.1"/><path d="M17.5 11h4.5"/>'
+};
+function roleIcon(id, size){
+  const d = ROLE_ICON_PATHS[id];
+  if(!d) return '';
+  const s = size || 14;
+  return `<svg class="ricon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+}
 const ROLE_BY_ID = Object.fromEntries(ROLES.map(r => [r.id, r]));
 
 const alFilter = {q: '', role: '', cargo: ''};
@@ -16,7 +31,7 @@ let alAddCargo = '';
 
 function roleBadge(id){
   const r = ROLE_BY_ID[id];
-  return r ? `<span class="rbadge" style="--c:${r.color}">${r.label}</span>` : '';
+  return r ? `<span class="rbadge" style="--c:${r.color}">${roleIcon(id, 14)}${r.label}</span>` : '';
 }
 // selos de função de um nick (usado também na análise)
 function roleBadges(nick){
@@ -48,7 +63,7 @@ function memberRow(p){
   }
   return `<div class="mem edit">
     <b class="mem-nick">${esc(p.nick)}</b>
-    <span class="rbadges">${ROLES.map(r => `<button type="button" class="rchip" data-act="role" data-nick="${esc(p.nick)}" data-role="${r.id}" data-on="${roles.includes(r.id)}" style="--c:${r.color}">${r.label}</button>`).join('')}</span>
+    <span class="rbadges">${ROLES.map(r => `<button type="button" class="rchip" data-act="role" data-nick="${esc(p.nick)}" data-role="${r.id}" data-on="${roles.includes(r.id)}" style="--c:${r.color}">${roleIcon(r.id, 13)}${r.label}</button>`).join('')}</span>
     <select class="mem-sel" data-act="cargo" data-nick="${esc(p.nick)}" aria-label="Cargo de ${esc(p.nick)}">
       <option value="">Sem cargo</option>${cargos.map(c => `<option value="${esc(c)}"${p.cargo === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
     </select>
@@ -79,7 +94,7 @@ function allianceSummaryHTML(){
     <div class="al-hero-txt">
       <h2>Aliança We Sink</h2>
       <p class="small-dim"><b style="color:var(--text)">${roster.length}</b> membro${roster.length === 1 ? '' : 's'} · ${roster.length - reservas} ativo${roster.length - reservas === 1 ? '' : 's'} · ${reservas} reserva${reservas === 1 ? '' : 's'}</p>
-      <div class="rbadges">${counts.map(c => `<span class="rbadge" style="--c:${c.r.color}">${c.r.label} · ${c.n}</span>`).join('')}</div>
+      <div class="rbadges">${counts.map(c => `<span class="rbadge" style="--c:${c.r.color}">${roleIcon(c.r.id, 14)}${c.r.label} · ${c.n}</span>`).join('')}</div>
     </div>
   </div>`;
 }
@@ -91,7 +106,7 @@ function addCardHTML(){
     <div class="roster-add"><input class="nick-input" id="alNew" type="text" maxlength="600" placeholder="nick (ou vários separados por vírgula)" autocomplete="off">
       <select class="mem-sel" id="alNewCargo" aria-label="Cargo"><option value="">Sem cargo</option>${cargos.map(c => `<option value="${esc(c)}"${alAddCargo === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
       <button class="primary-btn" id="alAdd" type="button">Adicionar</button></div>
-    <div class="rbadges" id="alNewRoles">${ROLES.map(r => `<button type="button" class="rchip" data-act="newrole" data-role="${r.id}" data-on="${alAddRoles.includes(r.id)}" style="--c:${r.color}">${r.label}</button>`).join('')}</div>
+    <div class="rbadges" id="alNewRoles">${ROLES.map(r => `<button type="button" class="rchip" data-act="newrole" data-role="${r.id}" data-on="${alAddRoles.includes(r.id)}" style="--c:${r.color}">${roleIcon(r.id, 13)}${r.label}</button>`).join('')}</div>
   </div>`;
 }
 

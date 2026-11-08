@@ -32,6 +32,8 @@ function onAdminChanged(){
 }
 function onRosterChanged(){
   if(currentTab === 'alianca') renderAlliance();
+  if(currentTab === 'equipes') renderTeams();
+  renderMyTeamCard();
 }
 function onLiveStateChanged(){}
 
@@ -136,7 +138,7 @@ function charsCard(list){
       <td class="num">${pctCell(r.w, r.n)}</td>
     </tr>`).join('');
   const sub = charSide === 'rivais'
-    ? 'Personagens que o adversário colocou. "%" = quanto NÓS vencemos quando ele estava no time deles.'
+    ? 'Personagens que o adversário colocou. "%" = quanto NÓS vencemos quando ele estava na equipe deles.'
     : 'Personagens que a We Sink usou. "%" = quanto vencemos com ele no time.';
   const body = rows.length
     ? `<table class="tbl"><thead><tr><th>Personagem</th><th class="num">Batalhas (presença)</th><th></th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${trs}</tbody></table>
@@ -334,7 +336,7 @@ function downloadCSV(){
   const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
   const head = ['data', 'mapa', 'alianca', 'time', 'resultado', 'nossa_composicao', 'rivais', 'observacao'];
   const rows = battles.map(b => [
-    b.date, mapName(b.map), b.alliance, b.team ? 'Time ' + b.team : '', b.result === 'w' ? 'Vitoria' : 'Derrota',
+    b.date, mapName(b.map), b.alliance, b.team ? 'Equipe ' + b.team : '', b.result === 'w' ? 'Vitoria' : 'Derrota',
     (b.our || []).map(s => (s.p ? s.p + ': ' : '') + (s.c ? charName(s.c) : '?')).join(' | '),
     (b.enemy || []).map(charName).join(' | '), b.note || ''
   ].map(q).join(';'));
@@ -386,7 +388,7 @@ function openBattleModal(b){
     <div class="row3">
       <div><label class="f" for="fDate">Data</label><input class="nick-input" id="fDate" type="date" value="${form.date}"></div>
       <div><label class="f" for="fMap">Mapa</label><select class="nick-input" id="fMap"><option value="">Escolha…</option>${MAPS.map(m => `<option value="${m.id}"${m.id === form.map ? ' selected' : ''}>${m.name}</option>`).join('')}</select></div>
-      <div><label class="f" for="fTeam">Time (opcional)</label><select class="nick-input" id="fTeam"><option value="">—</option>${TEAMS.map(t => `<option value="${t.id}"${t.id === form.team ? ' selected' : ''}>${t.name}</option>`).join('')}</select></div>
+      <div><label class="f" for="fTeam">Equipe (opcional)</label><select class="nick-input" id="fTeam"><option value="">—</option>${TEAMS.map(t => `<option value="${t.id}"${t.id === form.team ? ' selected' : ''}>${t.name}</option>`).join('')}</select></div>
     </div>
     <label class="f" for="fAlliance">Aliança adversária</label>
     <input class="nick-input" id="fAlliance" type="text" list="dlAlliances" maxlength="30" value="${esc(form.alliance)}" placeholder="nome da aliança">
@@ -469,9 +471,9 @@ function seqForm(kind){
 }
 function importFromTracker(){
   const team = form.team;
-  if(!team){ formErr('Escolha o time acima para importar os personagens que foram marcados no marcador de mortes.'); return; }
+  if(!team){ formErr('Escolha a equipe acima para importar os personagens que foram marcados no marcador de mortes.'); return; }
   const cs = (state.chars && state.chars[team]) || {};
-  if(!ENEMY_SLOTS.some(s => cs[s.id])){ formErr(`O marcador do ${TEAMS.find(t => t.id === team).name} está sem personagens agora (ele zera quando o mapa do time muda).`); return; }
+  if(!ENEMY_SLOTS.some(s => cs[s.id])){ formErr(`O marcador do ${TEAMS.find(t => t.id === team).name} está sem personagens agora (ele zera quando o mapa da equipe muda).`); return; }
   ENEMY_SLOTS.forEach((s, i) => { form.enemy[i] = cs[s.id] || ''; updFaceBtn('en', i); });
   $('formErr').classList.add('hidden');
 }

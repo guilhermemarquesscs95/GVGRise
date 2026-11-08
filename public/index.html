@@ -7,7 +7,7 @@
 <link rel="icon" href="logo.webp?v=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div class="wrap">
@@ -59,13 +59,15 @@
   </div>
 
   <nav class="tabs hidden" id="tabsBar" role="tablist">
-    <button class="tab" role="tab" data-tab="cura" type="button">Cura</button>
+    <button class="tab" role="tab" data-tab="cura" type="button">Controle de Cura</button>
+    <button class="tab" role="tab" data-tab="equipes" type="button">Equipes</button>
     <button class="tab" role="tab" data-tab="analise" type="button">Análise</button>
     <button class="tab" role="tab" data-tab="alianca" type="button">Aliança</button>
   </nav>
 
   <!-- ===== aba Cura ===== -->
   <div id="tabCura" class="narrow hidden">
+    <div id="myTeamCard"></div>
     <div id="selectionScreen" class="hidden">
       <div class="user-line">
         <span>Logado como <b id="userName"></b></span>
@@ -84,14 +86,14 @@
 
     <div id="pointsScreen" class="hidden">
       <div class="top-bar">
-        <span class="info" id="topBarInfo">Time · Mapa</span>
+        <span class="info" id="topBarInfo">Equipe · Mapa</span>
         <button id="changeSelectionBtn" type="button">Trocar time/mapa</button>
       </div>
       <p class="presence" id="presenceLine"></p>
 
       <div class="enemy-section">
         <div class="enemy-head">
-          <span class="section-label">Time inimigo — toque quando morrer (trava 60s):</span>
+          <span class="section-label">Equipe inimiga — toque quando morrer (trava 60s):</span>
           <button class="mini-btn" id="faceEditBtn" type="button">&#9998; Escolher personagens</button>
         </div>
         <div class="enemy-row" id="enemyRow"></div>
@@ -102,6 +104,9 @@
     </div>
   </div>
 
+  <!-- ===== aba Equipes ===== -->
+  <div id="tabEquipes" class="hidden"></div>
+
   <!-- ===== aba Análise ===== -->
   <div id="tabAnalise" class="hidden"></div>
 
@@ -109,7 +114,7 @@
   <div id="tabAlianca" class="hidden"></div>
 
   <footer>
-    Tudo sincroniza em tempo real entre quem estiver no mesmo time: mapa, pontos de cura, inimigos e personagens.<br>
+    Tudo sincroniza em tempo real entre quem estiver na mesma equipe: mapa, pontos de cura, inimigos e personagens.<br>
     "Modo flutuante" abre uma janela clicável por cima do jogo (Chrome/Edge atualizados, no PC).
   </footer>
 
@@ -120,9 +125,10 @@
 
 <script src="chars.js?v=1"></script>
 <script src="faces.js?v=2"></script>
-<script src="app.js?v=3"></script>
-<script src="analysis.js?v=3"></script>
-<script src="alliance.js?v=3"></script>
+<script src="app.js?v=4"></script>
+<script src="analysis.js?v=4"></script>
+<script src="alliance.js?v=4"></script>
+<script src="teams.js?v=4"></script>
 <script>init();</script>
 </body>
 </html>
