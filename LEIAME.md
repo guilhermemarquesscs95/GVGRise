@@ -33,3 +33,9 @@ Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: 
 
 - Em "Lançar batalha" há a chave **We Sink × aliança / Outras alianças**. No modo "Outras alianças" você informa a aliança A, a aliança B, quem venceu e a composição de cada lado.
 - Esses confrontos NÃO entram nos números da We Sink (KPIs, mapas, alianças enfrentadas, jogadores, Rivais e Nossos). Eles alimentam: Personagens · **Todos** (une We Sink, rivais e outras alianças), Composições · de todos, **Alianças · visão geral** (jogos, % e composição que cada uma mais repete), "O que as outras alianças usam em cada mapa" e o histórico.
+
+## Posição primária/secundária, personagens preferidos e aba Personagens
+
+- Em "Meu perfil" cada membro escolhe **uma posição primária** (a que mais domina), as **secundárias** e até **5 personagens preferidos**. Reserva continua sendo etiqueta da liderança.
+- Em Aliança, clicar no nome de alguém abre o perfil dele: primária, secundárias e preferidos. A liderança com permissão de Aliança também pode mudar a primária pela lista ao lado do membro, mas não altera os personagens preferidos de ninguém.
+- A aba **Personagens** mostra a galeria (com busca). Ao clicar: desempenho (geral, com a We Sink e contra a We Sink, calculado das batalhas lançadas), quem da aliança o tem entre os preferidos e um espaço reservado para winrate detalhado, counters e notas.

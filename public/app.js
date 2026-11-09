@@ -117,7 +117,7 @@ const pipBtn = $('pipBtn'), pipLabel = $('pipLabel'), pipNote = $('pipNote');
 const syncDot = $('syncDot'), syncText = $('syncText');
 const loginScreen = $('loginScreen'), bootScreen = $('bootScreen'), loginNick = $('loginNick'), loginPass = $('loginPass');
 const loginBtn = $('loginBtn'), loginError = $('loginError'), userName = $('userName'), logoutBtn = $('logoutBtn');
-const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca'), tabUsuarios = $('tabUsuarios');
+const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca'), tabUsuarios = $('tabUsuarios'), tabPersonagens = $('tabPersonagens');
 
 /* ---------- preferências locais (nick, senha, time e som ficam neste aparelho) ---------- */
 
@@ -357,7 +357,7 @@ function setMode(m){
   } else {
     selectionScreen.classList.add('hidden');
     pointsScreen.classList.add('hidden');
-    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden'); tabUsuarios.classList.add('hidden');
+    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden'); tabUsuarios.classList.add('hidden'); tabPersonagens.classList.add('hidden');
     closeFloating();
     closePicker();
     if(m === 'boot') bootScreen.textContent = `Entrando como ${nickname || 'Admin'}...`;
@@ -378,11 +378,13 @@ function applyTab(){
   tabAnalise.classList.toggle('hidden', currentTab !== 'analise');
   tabAlianca.classList.toggle('hidden', currentTab !== 'alianca');
   tabUsuarios.classList.toggle('hidden', currentTab !== 'usuarios');
+  tabPersonagens.classList.toggle('hidden', currentTab !== 'personagens');
   tabsBar.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === currentTab ? 'true' : 'false'));
   if(currentTab === 'analise') enterAnalysis();
   if(currentTab === 'alianca') renderAlliance();
   if(currentTab === 'equipes') renderTeams();
   if(currentTab === 'usuarios') renderUsers();
+  if(currentTab === 'personagens') enterCharacters();
   if(currentTab === 'cura') renderMyTeamCard();
 }
 tabsBar.addEventListener('click', (e)=>{

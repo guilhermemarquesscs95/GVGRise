@@ -232,7 +232,7 @@ function openMemberPicker(tid, kind, i){
     const fit = kind === 's' ? fitsSlot(p.nick, i) : true;
     const note = p.nick === cur ? 'nesta vaga' : w ? (w.tid === tid ? 'já na equipe: ' + w.label : 'mover de ' + w.label) : '';
     return `<button type="button" class="pick-item${fit ? '' : ' off'}" data-nick="${esc(p.nick)}">
-      <b>${esc(p.nick)}</b><span class="rbadges">${(p.roles || []).map(roleBadge).join('')}</span>${note ? `<span class="small-dim pick-note">${esc(note)}</span>` : ''}</button>`;
+      <b>${esc(p.nick)}</b><span class="rbadges">${badgesOf(p)}</span>${note ? `<span class="small-dim pick-note">${esc(note)}</span>` : ''}</button>`;
   };
   openModal(`
     <h3>${esc(title)}</h3>

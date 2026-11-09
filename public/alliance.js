@@ -29,14 +29,22 @@ const alFilter = {q: '', role: '', cargo: ''};
 let alAddRoles = [];
 let alAddCargo = '';
 
-function roleBadge(id){
+function roleBadge(id, primary){
   const r = ROLE_BY_ID[id];
-  return r ? `<span class="rbadge" style="--c:${r.color}">${roleIcon(id, 14)}${r.label}</span>` : '';
+  return r ? `<span class="rbadge${primary ? ' pri' : ''}" style="--c:${r.color}" title="${primary ? 'Posição primária' : r.id === 'reserva' ? 'Reserva' : 'Posição secundária'}">${roleIcon(id, 14)}${r.label}</span>` : '';
 }
+// posição primária primeiro, depois as secundárias, e por último a etiqueta Reserva
+function badgesOf(p){
+  const roles = p.roles || [];
+  const pri = p.primary && roles.includes(p.primary) ? p.primary : roles.find(r => r !== 'reserva');
+  const rest = roles.filter(r => r !== pri);
+  return (pri ? roleBadge(pri, true) : '') + rest.map(r => roleBadge(r)).join('');
+}
+const favFaces = (p, size) => (p.favs || []).length ? `<span class="faces-inline fav-faces" title="Personagens preferidos">${p.favs.map(id => faceHTML(id, size || 22)).join('')}</span>` : '';
 // selos de função de um nick (usado também na análise)
 function roleBadges(nick){
   const p = roster.find(x => x.nick.toLowerCase() === String(nick).toLowerCase());
-  return p && p.roles && p.roles.length ? `<span class="rbadges">${p.roles.map(roleBadge).join('')}</span>` : '';
+  return p && p.roles && p.roles.length ? `<span class="rbadges">${badgesOf(p)}</span>` : '';
 }
 
 function pushAlliance(newRoster, newCargos){
@@ -59,11 +67,15 @@ function visibleMembers(){
 function memberRow(p){
   const roles = p.roles || [];
   if(!can('alianca')){
-    return `<div class="mem">${avatarHTML(p.nick, 28)}<b class="mem-nick">${esc(p.nick)}</b><span class="rbadges">${roles.map(roleBadge).join('') || '<span class="small-dim">sem função</span>'}</span></div>`;
+    return `<div class="mem"><button type="button" class="mem-who" data-act="profile" data-nick="${esc(p.nick)}" title="Ver perfil">${avatarHTML(p.nick, 28)}<b class="mem-nick">${esc(p.nick)}</b></button><span class="rbadges">${badgesOf(p) || '<span class="small-dim">sem posição</span>'}</span>${favFaces(p)}</div>`;
   }
+  const priOpts = roles.filter(r => r !== 'reserva');
   return `<div class="mem edit">
-    ${avatarHTML(p.nick, 28)}<b class="mem-nick">${esc(p.nick)}</b>
+    <button type="button" class="mem-who" data-act="profile" data-nick="${esc(p.nick)}" title="Ver perfil">${avatarHTML(p.nick, 28)}<b class="mem-nick">${esc(p.nick)}</b></button>
     <span class="rbadges">${ROLES.map(r => `<button type="button" class="rchip" data-act="role" data-nick="${esc(p.nick)}" data-role="${r.id}" data-on="${roles.includes(r.id)}" style="--c:${r.color}">${roleIcon(r.id, 13)}${r.label}</button>`).join('')}</span>
+    <select class="mem-sel" data-act="primary" data-nick="${esc(p.nick)}" aria-label="Posição primária de ${esc(p.nick)}" title="Posição primária"${priOpts.length ? '' : ' disabled'}>
+      ${priOpts.length ? priOpts.map(r => `<option value="${r}"${(p.primary || priOpts[0]) === r ? ' selected' : ''}>Primária: ${ROLE_BY_ID[r].label}</option>`).join('') : '<option>Primária: —</option>'}
+    </select>
     <select class="mem-sel" data-act="cargo" data-nick="${esc(p.nick)}" aria-label="Cargo de ${esc(p.nick)}">
       <option value="">Sem cargo</option>${cargos.map(c => `<option value="${esc(c)}"${p.cargo === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
     </select>
@@ -176,6 +188,7 @@ tabAlianca.addEventListener('click', (e) => {
     pushAlliance(roster, [...cargos, name]);
     return;
   }
+  if(el.dataset.act === 'profile'){ openMemberProfile(el.dataset.nick); return; }
   if(!can('alianca')) return;
   const act = el.dataset.act, nick = el.dataset.nick;
   if(act === 'newrole'){
@@ -208,7 +221,9 @@ tabAlianca.addEventListener('change', (e) => {
   if(act === 'frole'){ alFilter.role = el.value; renderAlliance(); return; }
   if(act === 'fcargo'){ alFilter.cargo = el.value; renderAlliance(); return; }
   if(!can('alianca')) return;
-  if(act === 'cargo'){
+  if(act === 'primary'){
+    pushAlliance(roster.map(p => p.nick === el.dataset.nick ? {...p, primary: el.value} : p), cargos);
+  } else if(act === 'cargo'){
     pushAlliance(roster.map(p => p.nick === el.dataset.nick ? {...p, cargo: el.value} : p), cargos);
   } else if(act === 'rename'){
     const old = el.dataset.old, name = el.value.replace(/[<>]/g, '').trim().slice(0, 24);

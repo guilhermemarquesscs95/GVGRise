@@ -24,6 +24,7 @@ function onBattles(list){
   battles = list;
   battlesLoaded = true;
   if(currentTab === 'analise') renderAnalysis();
+  if(currentTab === 'personagens') renderCharacters();
 }
 function onBattlesDirty(){ send({t:'get_battles'}, true); }
 function onAdminChanged(){
@@ -33,6 +34,7 @@ function onAdminChanged(){
 function onRosterChanged(){
   if(currentTab === 'alianca') renderAlliance();
   if(currentTab === 'equipes') renderTeams();
+  if(currentTab === 'personagens') renderCharacters();
   renderMyTeamCard();
 }
 function onLiveStateChanged(){}

@@ -51,17 +51,29 @@ function fileToAvatar(file){
 }
 
 const SELF_ROLES = ROLES.filter(r => r.id !== 'reserva');
-function rolesChipsHTML(){
-  return SELF_ROLES.map(r => `<button type="button" class="rchip" data-role="${r.id}" data-on="${profRoles.includes(r.id)}" style="--c:${r.color}">${roleIcon(r.id, 13)}${r.label}</button>`).join('');
+let profPrimary = '', profSecondary = [], profFavs = ['', '', '', '', ''];
+
+function posChipsHTML(kind){
+  return SELF_ROLES.map(r => {
+    const on = kind === 'pri' ? profPrimary === r.id : profSecondary.includes(r.id);
+    const off = kind === 'sec' && profPrimary === r.id;
+    return `<button type="button" class="rchip${off ? ' off' : ''}" data-role="${r.id}" data-on="${on}"${off ? ' disabled title="É a sua posição primária"' : ''} style="--c:${r.color}">${roleIcon(r.id, 13)}${r.label}</button>`;
+  }).join('');
+}
+function favSlotsHTML(){
+  return profFavs.map((id, i) => `<button type="button" class="face-btn${id ? ' set' : ''}" data-fav="${i}" title="${id ? esc(charName(id)) : 'Escolher personagem'}">${id ? faceHTML(id, 46) : '+'}</button>`).join('');
 }
 
 function openProfile(first){
   const me = myMember();
   if(!me) return;
-  profRoles = (me.roles || []).filter(r => r !== 'reserva');
+  const own = (me.roles || []).filter(r => r !== 'reserva');
+  profPrimary = me.primary && own.includes(me.primary) ? me.primary : (own[0] || '');
+  profSecondary = own.filter(r => r !== profPrimary);
+  profFavs = [...(me.favs || []), '', '', '', '', ''].slice(0, 5);
   openModal(`
     <h3>${first ? 'Complete o seu perfil' : 'Meu perfil'}</h3>
-    <p class="small-dim" style="margin:6px 0 14px">${first ? 'Escolha as funções que você joga e, se quiser, coloque uma foto. Você pode mudar tudo depois em "Meu perfil".' : 'Só você edita o seu perfil.'}</p>
+    <p class="small-dim" style="margin:6px 0 14px">${first ? 'Escolha a sua posição, os personagens que você mais domina e, se quiser, coloque uma foto. Você pode mudar tudo depois em "Meu perfil".' : 'Só você edita o seu perfil.'}</p>
     <div class="prof-top">
       <div id="profAvatar">${avatarHTML(me.nick, 72)}</div>
       <div class="prof-who"><b>${esc(me.nick)}</b>${me.cargo ? `<span class="small-dim">${esc(me.cargo)}</span>` : ''}
@@ -72,8 +84,12 @@ function openProfile(first){
         <input type="file" id="profFile" accept="image/*" hidden>
       </div>
     </div>
-    <label class="f" style="display:block;margin:16px 0 8px">Minhas funções <span class="small-dim">(marque todas que você joga)</span></label>
-    <div class="rbadges" id="profRoles">${rolesChipsHTML()}</div>
+    <label class="f" style="display:block;margin:16px 0 8px">Posição primária <span class="small-dim">(só uma: a que você mais domina)</span></label>
+    <div class="rbadges" id="profPrimary">${posChipsHTML('pri')}</div>
+    <label class="f" style="display:block;margin:14px 0 8px">Posições secundárias <span class="small-dim">(opcional: outras que você também joga)</span></label>
+    <div class="rbadges" id="profSecondary">${posChipsHTML('sec')}</div>
+    <label class="f" style="display:block;margin:14px 0 8px">Personagens preferidos <span class="small-dim">(até 5, os que você mais domina)</span></label>
+    <div class="fav-row" id="profFavs">${favSlotsHTML()}</div>
     <p class="login-error hidden" id="profErr" style="margin-top:10px"></p>
     ${first ? '' : `
     <details class="prof-pw"><summary>Trocar minha senha</summary>
@@ -87,17 +103,30 @@ function openProfile(first){
       <button type="button" class="ghost-btn" id="pwGo" style="margin-top:10px">Trocar senha</button>
     </details>`}
     <div class="modal-actions">
-      <button class="primary-btn" id="profSave" type="button">${first ? 'Salvar' : 'Salvar funções'}</button>
+      <button class="primary-btn" id="profSave" type="button">${first ? 'Salvar' : 'Salvar perfil'}</button>
       <button class="ghost-btn" id="profClose" type="button">${first ? 'Pular por agora' : 'Fechar'}</button>
     </div>
     ${first ? '' : '<div class="prof-logout"><button type="button" class="ghost-btn" id="profLogout">Sair da conta</button></div>'}`);
   const err = (t) => { const e = $('profErr'); e.textContent = t; e.classList.toggle('hidden', !t); };
-  $('profRoles').addEventListener('click', (e) => {
+  const redrawPos = () => { $('profPrimary').innerHTML = posChipsHTML('pri'); $('profSecondary').innerHTML = posChipsHTML('sec'); };
+  $('profPrimary').addEventListener('click', (e) => {
     const b = e.target.closest('.rchip'); if(!b) return;
+    profPrimary = b.dataset.role;
+    profSecondary = profSecondary.filter(x => x !== profPrimary);
+    redrawPos(); err('');
+  });
+  $('profSecondary').addEventListener('click', (e) => {
+    const b = e.target.closest('.rchip'); if(!b || b.disabled) return;
     const id = b.dataset.role;
-    profRoles = profRoles.includes(id) ? profRoles.filter(x => x !== id) : [...profRoles, id];
-    b.dataset.on = String(profRoles.includes(id));
-    err('');
+    profSecondary = profSecondary.includes(id) ? profSecondary.filter(x => x !== id) : [...profSecondary, id];
+    redrawPos();
+  });
+  $('profFavs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fav]'); if(!b) return;
+    runPicker({doc: document, count: 5, start: Number(b.dataset.fav), single: true,
+      label: n => 'Personagem preferido ' + (n + 1),
+      get: n => profFavs[n],
+      set: (n, id) => { if(id) profFavs = profFavs.map((x, k) => k !== n && x === id ? '' : x); profFavs[n] = id; $('profFavs').innerHTML = favSlotsHTML(); }});
   });
   $('profPick').addEventListener('click', () => $('profFile').click());
   $('profFile').addEventListener('change', async (e) => {
@@ -112,8 +141,8 @@ function openProfile(first){
   });
   $('profRemove').addEventListener('click', () => { send({t: 'avatar_set', avatar: ''}); delete avatars[nickname.toLowerCase()]; refreshProfileUI(); $('profRemove').disabled = true; });
   $('profSave').addEventListener('click', () => {
-    if(!profRoles.length){ err('Marque pelo menos uma função.'); return; }
-    send({t: 'profile_set', roles: profRoles});
+    if(!profPrimary){ err('Escolha a sua posição primária.'); return; }
+    send({t: 'profile_set', primary: profPrimary, secondary: profSecondary.filter(x => x !== profPrimary), favs: profFavs.filter(Boolean)});
   });
   $('profClose').addEventListener('click', closeModal);
   const lo = $('profLogout'); if(lo) lo.addEventListener('click', () => { closeModal(); logout(); });
@@ -128,6 +157,33 @@ function openProfile(first){
       send({t: 'pw_change', old: o, pass: n});
     });
   }
+}
+
+// perfil de outra pessoa (só leitura): posições e personagens preferidos
+function openMemberProfile(nick){
+  const p = roster.find(x => x.nick.toLowerCase() === String(nick).toLowerCase());
+  if(!p) return;
+  const roles = p.roles || [];
+  const pri = p.primary && roles.includes(p.primary) ? p.primary : roles.find(r => r !== 'reserva');
+  const sec = roles.filter(r => r !== pri && r !== 'reserva');
+  const mine = nickname && p.nick.toLowerCase() === nickname.toLowerCase();
+  const favs = p.favs || [];
+  openModal(`
+    <div class="prof-top">
+      <div>${avatarHTML(p.nick, 72)}</div>
+      <div class="prof-who"><b style="font-size:20px">${esc(p.nick)}</b>${p.cargo ? `<span class="small-dim">${esc(p.cargo)}</span>` : ''}
+        ${roles.includes('reserva') ? '<span class="rbadges" style="margin-top:4px">' + roleBadge('reserva') + '</span>' : ''}</div>
+    </div>
+    <div class="pv-sec"><div class="pv-k">Posição primária</div><div class="rbadges">${pri ? roleBadge(pri, true) : '<span class="small-dim">ainda não definida</span>'}</div></div>
+    <div class="pv-sec"><div class="pv-k">Posições secundárias</div><div class="rbadges">${sec.length ? sec.map(r => roleBadge(r)).join('') : '<span class="small-dim">nenhuma</span>'}</div></div>
+    <div class="pv-sec"><div class="pv-k">Personagens preferidos</div>
+      ${favs.length ? `<div class="pv-favs">${favs.map(id => `<div class="pv-fav">${faceHTML(id, 56)}<span>${esc(charName(id))}</span></div>`).join('')}</div>` : '<span class="small-dim">ainda não escolheu</span>'}</div>
+    <div class="modal-actions">
+      ${mine ? '<button class="primary-btn" id="pvEdit" type="button">Editar meu perfil</button>' : ''}
+      <button class="ghost-btn" id="pvClose" type="button">Fechar</button>
+    </div>`);
+  $('pvClose').addEventListener('click', closeModal);
+  const ed = $('pvEdit'); if(ed) ed.addEventListener('click', () => openProfile(false));
 }
 let pendingPwChange = '';
 const pwcMsg = (t, ok) => { const m = $('pwMsg'); if(!m) return; m.textContent = t; m.classList.remove('hidden'); m.style.color = ok ? '#35C48C' : '#FF8A8A'; };

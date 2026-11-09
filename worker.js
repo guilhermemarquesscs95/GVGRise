@@ -43,6 +43,7 @@ const DEFAULT_PERMS = ["cura"];
 const PW_MIN = 8;
 const PW_MAX = 64;
 const PBKDF2_ITER = 10000;
+const MAX_FAVS = 5;
 const MAX_AVATAR = 30000; // caracteres do data URL (a tela reduz a foto para 96x96)
 const AVATAR_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 const MAX_FAILS = 8; // erros de senha por IP...
@@ -81,6 +82,23 @@ function cleanRoles(list, legacyReserve) {
   return ROLE_IDS.filter((r) => out.includes(r));
 }
 
+// posição primária = só uma, e tem que estar entre as funções do membro (Reserva é etiqueta, não posição)
+function fixPrimary(roles, wanted) {
+  const w = String(wanted ?? "");
+  if (w !== "reserva" && roles.includes(w)) return w;
+  return roles.find((r) => r !== "reserva") || "";
+}
+// até 5 personagens preferidos, sem repetir
+function cleanFavs(list) {
+  const out = [];
+  for (const c of Array.isArray(list) ? list : []) {
+    const id = String(c ?? "");
+    if (CHAR_RE.test(id) && !out.includes(id)) out.push(id);
+    if (out.length >= MAX_FAVS) break;
+  }
+  return out;
+}
+
 function sanitizeCargos(list) {
   if (!Array.isArray(list)) return null;
   const out = [];
@@ -92,7 +110,7 @@ function sanitizeCargos(list) {
 }
 
 // membros: nick + funções (várias) + cargo (um, tem que existir na lista de cargos)
-function sanitizePlayers(list, cargos) {
+function sanitizePlayers(list, cargos, prev = []) {
   if (!Array.isArray(list)) return null;
   const out = [];
   const seen = new Set();
@@ -104,7 +122,10 @@ function sanitizePlayers(list, cargos) {
     seen.add(key);
     const asked = cleanText(p && p.cargo, 24);
     const cargo = cargos.find((c) => c.toLowerCase() === asked.toLowerCase()) || "";
-    out.push({ nick, roles: cleanRoles(p && p.roles, p && p.reserve), cargo });
+    const roles = cleanRoles(p && p.roles, p && p.reserve);
+    const old = prev.find((x) => x.nick.toLowerCase() === key);
+    // personagens preferidos só o próprio membro muda (pelo perfil): aqui sempre vale o que já estava salvo
+    out.push({ nick, roles, cargo, primary: fixPrimary(roles, (p && p.primary) || (old && old.primary)), favs: old ? old.favs || [] : [] });
   }
   return out;
 }
@@ -208,7 +229,10 @@ export class Room extends DurableObject {
     if (!this.roster) {
       const saved = (await this.ctx.storage.get("roster")) || [];
       // versão antiga guardava só { nick, reserve }
-      this.roster = saved.map((p) => ({ nick: p.nick, roles: cleanRoles(p.roles, p.reserve), cargo: p.cargo || "" }));
+      this.roster = saved.map((p) => {
+        const roles = cleanRoles(p.roles, p.reserve);
+        return { nick: p.nick, roles, cargo: p.cargo || "", primary: fixPrimary(roles, p.primary), favs: cleanFavs(p.favs) };
+      });
     }
     return this.roster;
   }
@@ -563,7 +587,7 @@ export class Room extends DurableObject {
         if (!can("alianca")) return deny();
         const cargos = sanitizeCargos(msg.cargos);
         if (!cargos) return;
-        const players = sanitizePlayers(msg.players, cargos);
+        const players = sanitizePlayers(msg.players, cargos, await this.getRoster());
         if (!players) return;
         this.roster = players;
         this.cargos = cargos;
@@ -625,10 +649,13 @@ export class Room extends DurableObject {
         const roster = await this.getRoster();
         const me = roster.find((p) => p.nick.toLowerCase() === String(a.nick).toLowerCase());
         if (!me) return;
-        const picked = cleanRoles(msg.roles).filter((r) => r !== "reserva");
-        if (!picked.length) return;
+        const primary = String(msg.primary ?? "");
+        if (!ROLE_IDS.includes(primary) || primary === "reserva") return; // a posição primária é obrigatória
+        const secondary = cleanRoles(msg.secondary).filter((r) => r !== "reserva" && r !== primary);
         // "Reserva" é decisão da liderança: se já tinha, continua
-        me.roles = cleanRoles([...picked, ...(me.roles.includes("reserva") ? ["reserva"] : [])]);
+        me.roles = cleanRoles([primary, ...secondary, ...(me.roles.includes("reserva") ? ["reserva"] : [])]);
+        me.primary = primary;
+        me.favs = cleanFavs(msg.favs);
         const accs = await this.getAccounts();
         const key = me.nick.toLowerCase();
         accs[key] = { ...(accs[key] || { perms: [...DEFAULT_PERMS] }), profileSet: true };
