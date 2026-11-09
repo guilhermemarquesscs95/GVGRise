@@ -145,11 +145,16 @@ function sanitizeBattle(b) {
   const map = String(b.map ?? "");
   const result = b.result === "w" ? "w" : b.result === "l" ? "l" : null;
   const alliance = cleanText(b.alliance, 30);
+  // kind "third": confronto entre duas OUTRAS alianças. alliance = lado A, alliance2 = lado B,
+  // our = composição do lado A, enemy = composição do lado B, result "w" = A venceu, "l" = B venceu.
+  const third = b.kind === "third";
+  const alliance2 = third ? cleanText(b.alliance2, 30) : "";
   if (!DATE_RE.test(date) || !ID_RE.test(map) || !result || alliance.length < 1) return null;
+  if (third && (alliance2.length < 1 || alliance2.toLowerCase() === alliance.toLowerCase())) return null;
   const our = [];
   for (const s of (Array.isArray(b.our) ? b.our : []).slice(0, 8)) {
     const c = String((s && s.c) ?? "");
-    const p = cleanNick(s && s.p);
+    const p = third ? "" : cleanNick(s && s.p);
     if (!p && !c) continue;
     if (c && !CHAR_RE.test(c)) return null;
     our.push({ p, c });
@@ -161,11 +166,12 @@ function sanitizeBattle(b) {
     enemy.push(s);
   }
   return {
+    ...(third ? { kind: "third", alliance2 } : {}),
     date,
     map,
     alliance,
     result,
-    team: TEAM_IDS.includes(String(b.team ?? "")) ? String(b.team) : "",
+    team: !third && TEAM_IDS.includes(String(b.team ?? "")) ? String(b.team) : "",
     our,
     enemy,
     note: cleanText(b.note, 200),

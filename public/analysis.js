@@ -3,7 +3,7 @@
 let battles = [];
 let battlesLoaded = false;
 const flt = {period: 'all', map: '', alliance: ''};
-let charSide = 'rivais';       // 'rivais' | 'nossos'
+let charSide = 'rivais';       // 'rivais' | 'nossos' | 'todos'
 let charSort = 'uso';          // 'uso' | 'melhor' | 'pior'
 let showAllChars = false;
 let showAllHist = false;
@@ -72,9 +72,21 @@ function filteredBattles(){
     list = list.filter(b => b.date >= cut);
   }
   if(flt.map) list = list.filter(b => b.map === flt.map);
-  if(flt.alliance) list = list.filter(b => b.alliance === flt.alliance);
+  if(flt.alliance) list = list.filter(b => b.alliance === flt.alliance || b.alliance2 === flt.alliance);
   return list;
 }
+
+/* Batalhas "We Sink x aliança" e batalhas "outra aliança x outra aliança" (kind 'third').
+   Nas de outras alianças: alliance = lado A, alliance2 = lado B, our = composição de A, enemy = composição de B,
+   result 'w' = A venceu, 'l' = B venceu. */
+const WE_NAME = 'We Sink';
+const isWe = (b) => b.kind !== 'third';
+function sidesOf(b){
+  const A = uniq((b.our || []).map(s => s.c)), B = uniq(b.enemy || []);
+  if(!isWe(b)) return [{ally: b.alliance, chars: A, won: b.result === 'w', we: false}, {ally: b.alliance2, chars: B, won: b.result === 'l', we: false}];
+  return [{ally: WE_NAME, chars: A, won: b.result === 'w', we: true}, {ally: b.alliance, chars: B, won: b.result === 'l', we: false}];
+}
+const allianceNames = (b) => isWe(b) ? [b.alliance] : [b.alliance, b.alliance2];
 
 /* ---------- blocos da análise ---------- */
 
@@ -114,14 +126,21 @@ function alliancesCard(list){
     <table class="tbl"><thead><tr><th>Aliança</th><th class="num">V-D</th><th class="num">%</th><th class="num">Último</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-// personagens de um lado da batalha
-const sideChars = (b, side) => side === 'nossos' ? uniq((b.our || []).map(s => s.c)) : uniq(b.enemy || []);
+// cada "entrada" = uma composição numa batalha: {chars, w}. w = conta como vitória no percentual do quadro
+function entriesFor(list, side){
+  if(side === 'todos') return list.flatMap(b => sidesOf(b).map(x => ({chars: x.chars, w: x.won})));
+  const we = list.filter(isWe);
+  return side === 'nossos'
+    ? we.map(b => ({chars: uniq((b.our || []).map(s => s.c)), w: b.result === 'w'}))
+    : we.map(b => ({chars: uniq(b.enemy || []), w: b.result === 'w'}));
+}
+const tallyE = (arr) => { const w = arr.filter(e => e.w).length; return {n: arr.length, w, l: arr.length - w}; };
 
 function charsCard(list){
-  const withData = list.filter(b => sideChars(b, charSide).length);
+  const withData = entriesFor(list, charSide).filter(e => e.chars.length);
   const map = new Map();
-  withData.forEach(b => sideChars(b, charSide).forEach(c => { if(!map.has(c)) map.set(c, []); map.get(c).push(b); }));
-  let rows = [...map].map(([id, arr]) => ({id, ...tally(arr), pres: arr.length / withData.length}));
+  withData.forEach(e => e.chars.forEach(c => { if(!map.has(c)) map.set(c, []); map.get(c).push(e); }));
+  let rows = [...map].map(([id, arr]) => ({id, ...tallyE(arr), pres: arr.length / withData.length}));
   if(charSort === 'uso') rows.sort((a, b) => b.n - a.n || b.w - a.w);
   else {
     rows = rows.filter(r => r.n >= MIN_RATE);
@@ -137,17 +156,19 @@ function charsCard(list){
       <td class="num">${r.w}-${r.l}</td>
       <td class="num">${pctCell(r.w, r.n)}</td>
     </tr>`).join('');
-  const sub = charSide === 'rivais'
-    ? 'Personagens que o adversário colocou. "%" = quanto NÓS vencemos quando ele estava na equipe deles.'
-    : 'Personagens que a We Sink usou. "%" = quanto vencemos com ele no time.';
+  const sub = {
+    rivais: 'Personagens que o adversário colocou contra a We Sink. "%" = quanto NÓS vencemos quando ele estava na equipe deles.',
+    nossos: 'Personagens que a We Sink usou. "%" = quanto vencemos com ele no time.',
+    todos: 'Visão geral: todas as composições lançadas (We Sink, adversários e confrontos entre outras alianças). "%" = quanto a equipe que usou o personagem venceu.'
+  }[charSide];
   const body = rows.length
-    ? `<table class="tbl"><thead><tr><th>Personagem</th><th class="num">Batalhas (presença)</th><th></th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${trs}</tbody></table>
+    ? `<table class="tbl"><thead><tr><th>Personagem</th><th class="num">${charSide === 'todos' ? 'Usos' : 'Batalhas'} (presença)</th><th></th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${trs}</tbody></table>
        ${total > 12 ? `<div style="margin-top:10px"><button class="mini-btn" data-act="allchars">${showAllChars ? 'Mostrar menos' : `Mostrar todos (${total})`}</button></div>` : ''}
-       <p class="note-low">Percentual apagado = menos de ${LOW_N} batalhas com o personagem (amostra pequena, não tire conclusões ainda).</p>`
-    : `<div class="empty-box">${charSort === 'uso' ? 'Ainda não há personagens lançados deste lado.' : `Nenhum personagem com pelo menos ${MIN_RATE} batalhas ainda.`}</div>`;
+       <p class="note-low">Percentual apagado = menos de ${LOW_N} usos do personagem (amostra pequena, não tire conclusões ainda).</p>`
+    : `<div class="empty-box">${charSort === 'uso' ? 'Ainda não há personagens lançados neste quadro.' : `Nenhum personagem com pelo menos ${MIN_RATE} usos ainda.`}</div>`;
   return `<div class="an-card full"><h3>Personagens</h3><p class="sub">${sub}</p>
     <div class="card-tools">
-      <div class="seg"><button data-act="side" data-v="rivais" aria-pressed="${charSide === 'rivais'}">Rivais</button><button data-act="side" data-v="nossos" aria-pressed="${charSide === 'nossos'}">Nossos</button></div>
+      <div class="seg"><button data-act="side" data-v="rivais" aria-pressed="${charSide === 'rivais'}">Rivais</button><button data-act="side" data-v="nossos" aria-pressed="${charSide === 'nossos'}">Nossos</button><button data-act="side" data-v="todos" aria-pressed="${charSide === 'todos'}">Todos</button></div>
       <select data-act="sort">
         <option value="uso"${charSort === 'uso' ? ' selected' : ''}>Mais usados</option>
         <option value="melhor"${charSort === 'melhor' ? ' selected' : ''}>Melhor aproveitamento (mín. ${MIN_RATE})</option>
@@ -157,45 +178,77 @@ function charsCard(list){
 }
 
 function combosCard(list){
-  const withData = list.filter(b => sideChars(b, charSide).length >= 2);
+  const withData = entriesFor(list, charSide).filter(e => e.chars.length >= 2);
   const pairs = new Map(), sets = new Map();
-  withData.forEach(b => {
-    const ids = sideChars(b, charSide).sort();
+  withData.forEach(e => {
+    const ids = [...e.chars].sort();
     for(let i = 0; i < ids.length; i++) for(let j = i + 1; j < ids.length; j++){
       const k = ids[i] + '|' + ids[j];
       if(!pairs.has(k)) pairs.set(k, []);
-      pairs.get(k).push(b);
+      pairs.get(k).push(e);
     }
     if(ids.length >= 3){
       const k = ids.join('|');
       if(!sets.has(k)) sets.set(k, []);
-      sets.get(k).push(b);
+      sets.get(k).push(e);
     }
   });
-  const rank = (m, minN) => [...m].map(([k, arr]) => ({ids: k.split('|'), ...tally(arr)})).filter(r => r.n >= minN).sort((a, b) => b.n - a.n || b.w - a.w).slice(0, 8);
+  const rank = (m, minN) => [...m].map(([k, arr]) => ({ids: k.split('|'), ...tallyE(arr)})).filter(r => r.n >= minN).sort((a, b) => b.n - a.n || b.w - a.w).slice(0, 8);
   const pr = rank(pairs, 2), sr = rank(sets, 2);
   const row = (r, size) => `<tr><td><div class="name">${facesInline(r.ids, size)}</div></td><td class="num">${r.n}x</td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td></tr>`;
   const tbl = (rs, size, title) => rs.length
-    ? `<h4 style="margin:12px 0 6px;font-size:12px;color:var(--dim);font-weight:600">${title}</h4><table class="tbl"><thead><tr><th>Personagens</th><th class="num">Vezes</th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${rs.map(r => row(r, size)).join('')}</tbody></table>` : '';
+    ? `<h4 style="margin:12px 0 6px;font-size:12px;color:var(--dim);font-weight:600">${title}</h4><table class="tbl"><thead><tr><th>Personagens</th><th class="num">Vezes</th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${rs.map(r => row(r, size)).join('')}</tbody></table>`
+    : '';
   const inner = (pr.length || sr.length)
     ? tbl(sr, 30, 'Composições repetidas (3 ou mais personagens iguais)') + tbl(pr, 32, 'Duplas que mais aparecem juntas')
     : '<div class="empty-box">Ainda não há duplas ou composições repetidas. Elas aparecem conforme mais batalhas forem lançadas (a partir de 2 repetições).</div>';
-  return `<div class="an-card"><h3>Composições · ${charSide === 'rivais' ? 'rivais' : 'nossas'}</h3><p class="sub">Combinações que se repetem e como nos saímos nelas.</p>${inner}</div>`;
+  const who = {rivais: 'rivais', nossos: 'nossas', todos: 'de todos'}[charSide];
+  return `<div class="an-card"><h3>Composições · ${who}</h3><p class="sub">Combinações que se repetem e como a equipe que as usou se saiu.</p>${inner}</div>`;
 }
 
 function radarCard(list){
-  const byMap = [...groupBy(list.filter(b => (b.enemy || []).length), b => b.map)].sort((a, b) => b[1].length - a[1].length);
+  const ents = list.flatMap(b => sidesOf(b).filter(x => !x.we && x.chars.length && (!flt.alliance || x.ally === flt.alliance)).map(x => ({map: b.map, chars: x.chars})));
+  const byMap = [...groupBy(ents, e => e.map)].sort((a, b) => b[1].length - a[1].length);
   const items = byMap.map(([id, arr]) => {
     const cnt = new Map();
-    arr.forEach(b => uniq(b.enemy).forEach(c => cnt.set(c, (cnt.get(c) || 0) + 1)));
+    arr.forEach(e => e.chars.forEach(c => cnt.set(c, (cnt.get(c) || 0) + 1)));
     const top = [...cnt].sort((a, b) => b[1] - a[1]).slice(0, 6);
-    return `<div class="radar-item"><h4>${esc(mapName(id))}<small>${arr.length} batalha${arr.length > 1 ? 's' : ''}</small></h4>
+    return `<div class="radar-item"><h4>${esc(mapName(id))}<small>${arr.length} composiç${arr.length > 1 ? 'ões' : 'ão'}</small></h4>
       <div class="radar-faces">${top.map(([c, n]) => `<div class="rf">${faceHTML(c, 40)}<span>${Math.round(n / arr.length * 100)}%</span></div>`).join('')}</div></div>`;
   }).join('');
-  const who = flt.alliance ? `da aliança ${esc(flt.alliance)}` : 'dos adversários';
-  return `<div class="an-card full"><h3>O que o adversário usa em cada mapa</h3>
-    <p class="sub">Personagens mais frequentes ${who}, com a % de batalhas em que apareceram naquele mapa. Escolha uma aliança no filtro para ver o estilo dela.</p>
-    ${items ? `<div class="radar">${items}</div>` : '<div class="empty-box">Lance os personagens dos rivais nas batalhas para ver este quadro.</div>'}</div>`;
+  const who = flt.alliance ? `da aliança ${esc(flt.alliance)}` : 'das outras alianças';
+  return `<div class="an-card full"><h3>O que as outras alianças usam em cada mapa</h3>
+    <p class="sub">Personagens mais frequentes ${who} (contra nós e entre elas), com a % das composições em que apareceram naquele mapa. Escolha uma aliança no filtro para ver o estilo dela.</p>
+    ${items ? `<div class="radar">${items}</div>` : '<div class="empty-box">Lance os personagens dos rivais (ou de confrontos entre outras alianças) para ver este quadro.</div>'}</div>`;
+}
+
+let showAllAlli = false;
+// perfil de cada aliança (exceto a nossa), somando TODAS as batalhas em que ela aparece
+function allianceProfilesCard(list){
+  const per = new Map();
+  list.forEach(b => sidesOf(b).forEach(x => {
+    if(x.we) return;
+    if(!per.has(x.ally)) per.set(x.ally, {n: 0, w: 0, chars: new Map(), comps: new Map(), last: ''});
+    const e = per.get(x.ally);
+    e.n++; if(x.won) e.w++;
+    if(b.date > e.last) e.last = b.date;
+    x.chars.forEach(c => e.chars.set(c, (e.chars.get(c) || 0) + 1));
+    if(x.chars.length >= 3){ const k = [...x.chars].sort().join('|'); e.comps.set(k, (e.comps.get(k) || 0) + 1); }
+  }));
+  const rows = [...per].map(([name, e]) => ({name, ...e, l: e.n - e.w,
+    top: [...e.chars].sort((a, b) => b[1] - a[1]).slice(0, 5).map(t => t[0]),
+    comp: [...e.comps].sort((a, b) => b[1] - a[1])[0]})).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  const shown = showAllAlli ? rows : rows.slice(0, 12);
+  const trs = shown.map(r => `<tr class="clickable${flt.alliance === r.name ? ' sel' : ''}" data-act="falliance" data-v="${esc(r.name)}">
+      <td><div class="name"><span>${esc(r.name)}</span></div></td>
+      <td class="num">${r.n}</td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td>
+      <td>${r.top.length ? facesInline(r.top, 26) : '<span class="small-dim">—</span>'}</td>
+      <td>${r.comp && r.comp[1] >= 2 ? facesInline(r.comp[0].split('|'), 22) + `<span class="small-dim"> ${r.comp[1]}x</span>` : '<span class="small-dim">—</span>'}</td></tr>`).join('');
+  return `<div class="an-card full"><h3>Alianças · visão geral</h3>
+    <p class="sub">Todas as batalhas em que cada aliança aparece (contra nós ou contra outras). "%" = quanto ELA venceu. Mostra os 5 personagens que mais usa e a composição que mais repete. Clique para filtrar.</p>
+    ${rows.length ? `<table class="tbl"><thead><tr><th>Aliança</th><th class="num">Jogos</th><th class="num">V-D</th><th class="num">%</th><th>Mais usa</th><th>Comp. repetida</th></tr></thead><tbody>${trs}</tbody></table>
+      ${rows.length > 12 ? `<div style="margin-top:10px"><button class="mini-btn" data-act="allalli">${showAllAlli ? 'Mostrar menos' : `Mostrar todas (${rows.length})`}</button></div>` : ''}`
+      : '<div class="empty-box">Ainda não há alianças lançadas.</div>'}</div>`;
 }
 
 function playersCard(list){
@@ -227,14 +280,18 @@ function historyCard(list){
     const our = (b.our || []).filter(s => s.c).map(s => s.c);
     const enemy = b.enemy || [];
     const t = b.team ? TEAMS.find(x => x.id === b.team) : null;
+    const head = isWe(b)
+      ? `<span class="chip-sm ${b.result}">${b.result === 'w' ? 'VITÓRIA' : 'DERROTA'}</span>
+          <b>${esc(mapName(b.map))}</b><span class="dim">vs</span><b>${esc(b.alliance)}</b>`
+      : `<span class="chip-sm o">OUTRAS</span><b>${esc(mapName(b.map))}</b>
+          <b class="${b.result === 'w' ? 'winner' : ''}">${esc(b.alliance)}</b><span class="dim">vs</span><b class="${b.result === 'l' ? 'winner' : ''}">${esc(b.alliance2)}</b>`;
     return `<div class="hist-item">
       <div class="hist-main">
         <div class="hist-line">
-          <span class="chip-sm ${b.result}">${b.result === 'w' ? 'VITÓRIA' : 'DERROTA'}</span>
-          <b>${esc(mapName(b.map))}</b><span class="dim">vs</span><b>${esc(b.alliance)}</b>
-          <span class="dim">· ${fmtDate(b.date)}${t ? ' · ' + t.name : ''}</span>
+          ${head}
+          <span class="dim">· ${fmtDate(b.date)}${t ? ' · ' + t.name : ''}${isWe(b) ? '' : ' · venceu ' + esc(b.result === 'w' ? b.alliance : b.alliance2)}</span>
         </div>
-        <div>${our.length ? facesInline(our, 30) : '<span class="small-dim">nossa comp. não informada</span>'}<span class="vs">VS</span>${enemy.length ? facesInline(enemy, 30) : '<span class="small-dim">rivais não informados</span>'}</div>
+        <div>${our.length ? facesInline(our, 30) : '<span class="small-dim">' + (isWe(b) ? 'nossa comp. não informada' : 'comp. não informada') + '</span>'}<span class="vs">VS</span>${enemy.length ? facesInline(enemy, 30) : '<span class="small-dim">' + (isWe(b) ? 'rivais não informados' : 'comp. não informada') + '</span>'}</div>
         ${(b.our || []).some(s => s.p) ? `<div class="hist-note">${(b.our || []).filter(s => s.p).map(s => esc(s.p)).join(', ')}</div>` : ''}
         ${b.note ? `<div class="hist-note">“${esc(b.note)}”</div>` : ''}
       </div>
@@ -249,7 +306,7 @@ function historyCard(list){
 function renderAnalysis(){
   if(uiMode !== 'app') return;
   const all = battles;
-  const alliances = uniq(all.map(b => b.alliance)).sort((a, b) => a.localeCompare(b));
+  const alliances = uniq(all.flatMap(allianceNames)).sort((a, b) => a.localeCompare(b));
   const maps = uniq(all.map(b => b.map));
   if(flt.alliance && !alliances.includes(flt.alliance)) flt.alliance = '';
   const list = filteredBattles();
@@ -279,8 +336,11 @@ function renderAnalysis(){
   } else if(!list.length){
     html += '<div class="an-card"><div class="empty-box">Nenhuma batalha neste filtro.</div></div>';
   } else {
-    html += kpiHTML(tally(list));
-    html += `<div class="an-grid">${mapsCard(list)}${alliancesCard(list)}${charsCard(list)}${combosCard(list)}${playersCard(list)}${radarCard(list)}${historyCard(list)}</div>`;
+    const we = list.filter(isWe), others = list.length - we.length;
+    if(!we.length && charSide !== 'todos') charSide = 'todos';
+    if(we.length) html += kpiHTML(tally(we));
+    if(others) html += `<p class="small-dim" style="margin:${we.length ? '-6px' : '0'} 0 12px">${others} batalha${others > 1 ? 's' : ''} entre outras alianças ${others > 1 ? 'entram' : 'entra'} só nos quadros "Personagens · Todos", "Alianças · visão geral", "O que as outras alianças usam" e no histórico. Os números da We Sink acima não mudam.</p>`;
+    html += `<div class="an-grid">${we.length ? mapsCard(we) + alliancesCard(we) : ''}${charsCard(list)}${combosCard(list)}${we.length ? playersCard(we) : ''}${allianceProfilesCard(list)}${radarCard(list)}${historyCard(list)}</div>`;
   }
   tabAnalise.innerHTML = html;
 }
@@ -296,11 +356,12 @@ tabAnalise.addEventListener('click', (e) => {
     case 'side': charSide = v; showAllChars = false; break;
     case 'allchars': showAllChars = !showAllChars; break;
     case 'allhist': showAllHist = !showAllHist; break;
+    case 'allalli': showAllAlli = !showAllAlli; break;
     case 'new': openBattleModal(null); return;
     case 'edit': openBattleModal(battles.find(b => b.id === v)); return;
     case 'del': {
       const b = battles.find(x => x.id === v);
-      if(b && confirm(`Apagar a batalha ${fmtDate(b.date)} contra ${b.alliance} (${mapName(b.map)})?`)) send({t: 'battle_del', id: v});
+      if(b && confirm(`Apagar a batalha ${fmtDate(b.date)} ${isWe(b) ? 'contra ' + b.alliance : b.alliance + ' x ' + b.alliance2} (${mapName(b.map)})?`)) send({t: 'battle_del', id: v});
       return;
     }
     case 'csv': downloadCSV(); return;
@@ -334,9 +395,11 @@ function download(name, text, type){
 }
 function downloadCSV(){
   const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
-  const head = ['data', 'mapa', 'alianca', 'time', 'resultado', 'nossa_composicao', 'rivais', 'observacao'];
+  const head = ['data', 'mapa', 'tipo', 'alianca', 'alianca2', 'vencedor', 'time', 'resultado', 'nossa_composicao', 'rivais', 'observacao'];
   const rows = battles.map(b => [
-    b.date, mapName(b.map), b.alliance, b.team ? 'Equipe ' + b.team : '', b.result === 'w' ? 'Vitoria' : 'Derrota',
+    b.date, mapName(b.map), isWe(b) ? 'We Sink x alianca' : 'Outras aliancas', b.alliance, b.alliance2 || '',
+    isWe(b) ? (b.result === 'w' ? WE_NAME : b.alliance) : (b.result === 'w' ? b.alliance : b.alliance2),
+    b.team ? 'Equipe ' + b.team : '', b.result === 'w' ? 'Vitoria' : 'Derrota',
     (b.our || []).map(s => (s.p ? s.p + ': ' : '') + (s.c ? charName(s.c) : '?')).join(' | '),
     (b.enemy || []).map(charName).join(' | '), b.note || ''
   ].map(q).join(';'));
@@ -350,16 +413,16 @@ function downloadBackup(){
 
 let form = null;
 let formSavingNext = false;
-let lastKept = {date: '', alliance: ''};       // lembra data e aliança para lançar várias batalhas seguidas
+let lastKept = {date: '', alliance: '', alliance2: '', kind: 'we'};       // lembra data e aliança para lançar várias batalhas seguidas
 const SLOT_TAGS = ['Tank', 'Sup', '1', '2', '3', '4'];
 
 function blankForm(){
-  return {id: '', date: lastKept.date || todayStr(), map: '', alliance: lastKept.alliance || '', team: '', result: '',
+  return {id: '', kind: lastKept.kind || 'we', alliance2: lastKept.alliance2 || '', date: lastKept.date || todayStr(), map: '', alliance: lastKept.alliance || '', team: '', result: '',
     our: SLOT_TAGS.map(() => ({p: '', c: ''})), enemy: SLOT_TAGS.map(() => ''), note: ''};
 }
 function formFrom(b){
   const f = blankForm();
-  f.id = b.id; f.date = b.date; f.map = b.map; f.alliance = b.alliance; f.team = b.team || ''; f.result = b.result; f.note = b.note || '';
+  f.id = b.id; f.kind = b.kind === 'third' ? 'third' : 'we'; f.alliance2 = b.alliance2 || ''; f.date = b.date; f.map = b.map; f.alliance = b.alliance; f.team = b.team || ''; f.result = b.result; f.note = b.note || '';
   (b.our || []).slice(0, 6).forEach((s, i) => { f.our[i] = {p: s.p || '', c: s.c || ''}; });
   (b.enemy || []).slice(0, 6).forEach((c, i) => { f.enemy[i] = c; });
   return f;
@@ -382,14 +445,38 @@ function openBattleModal(b){
   if(!battlesLoaded) send({t: 'get_battles'}, true);
   form = b ? formFrom(b) : blankForm();
   formSavingNext = false;
-  const allies = uniq(battles.map(x => x.alliance)).sort();
+  renderBattleForm();
+}
+
+function renderBattleForm(){
+  const allies = uniq(battles.flatMap(allianceNames)).sort();
+  const third = form.kind === 'third';
+  const faceCells = (kind, arr) => `<div class="face-row">${SLOT_TAGS.map((t, i) => `<div class="face-cell">${faceBtnHTML(kind, i, arr(i))}<span>${t}</span></div>`).join('')}</div>`;
+  const nameA = () => (form.alliance.trim() || 'Aliança A'), nameB = () => (form.alliance2.trim() || 'Aliança B');
   openModal(`
-    <h3>${form.id ? 'Editar batalha' : 'Lançar batalha'}</h3>
+    <h3>${form.id ? 'Editar batalha' : 'Lançar batalha'}${third ? ' · outras alianças' : ''}</h3>
+    ${form.id ? '' : `<div class="seg" style="margin:2px 0 12px"><button type="button" data-kind="we" aria-pressed="${!third}">We Sink × aliança</button><button type="button" data-kind="third" aria-pressed="${third}">Outras alianças</button></div>`}
     <div class="row3">
       <div><label class="f" for="fDate">Data</label><input class="nick-input" id="fDate" type="date" value="${form.date}"></div>
       <div><label class="f" for="fMap">Mapa</label><select class="nick-input" id="fMap"><option value="">Escolha…</option>${MAPS.map(m => `<option value="${m.id}"${m.id === form.map ? ' selected' : ''}>${m.name}</option>`).join('')}</select></div>
-      <div><label class="f" for="fTeam">Equipe (opcional)</label><select class="nick-input" id="fTeam"><option value="">—</option>${TEAMS.map(t => `<option value="${t.id}"${t.id === form.team ? ' selected' : ''}>${t.name}</option>`).join('')}</select></div>
+      ${third ? '<div></div>' : `<div><label class="f" for="fTeam">Equipe (opcional)</label><select class="nick-input" id="fTeam"><option value="">—</option>${TEAMS.map(t => `<option value="${t.id}"${t.id === form.team ? ' selected' : ''}>${t.name}</option>`).join('')}</select></div>`}
     </div>
+    ${third ? `
+    <div class="row2">
+      <div><label class="f" for="fAlliance">Aliança A</label><input class="nick-input" id="fAlliance" type="text" list="dlAlliances" maxlength="30" value="${esc(form.alliance)}" placeholder="nome da aliança"></div>
+      <div><label class="f" for="fAlliance2">Aliança B</label><input class="nick-input" id="fAlliance2" type="text" list="dlAlliances" maxlength="30" value="${esc(form.alliance2)}" placeholder="nome da aliança"></div>
+    </div>
+    <datalist id="dlAlliances">${allies.map(a => `<option value="${esc(a)}">`).join('')}</datalist>
+    <label class="f">Quem venceu</label>
+    <div class="res-btns">
+      <button type="button" class="res-btn w" id="rbA" data-r="w" data-on="${form.result === 'w'}">${esc(nameA())} venceu</button>
+      <button type="button" class="res-btn l" id="rbB" data-r="l" data-on="${form.result === 'l'}">${esc(nameB())} venceu</button>
+    </div>
+    <div class="sec-head"><span>Composição da aliança A</span><span class="filters"><button type="button" class="mini-btn" id="fSeqOur">&#9654; Preencher seguidos</button></span></div>
+    ${faceCells('our', i => form.our[i].c)}
+    <div class="sec-head"><span>Composição da aliança B</span><span class="filters"><button type="button" class="mini-btn" id="fSeqEn">&#9654; Preencher seguidos</button></span></div>
+    ${faceCells('en', i => form.enemy[i])}
+    ` : `
     <label class="f" for="fAlliance">Aliança adversária</label>
     <input class="nick-input" id="fAlliance" type="text" list="dlAlliances" maxlength="30" value="${esc(form.alliance)}" placeholder="nome da aliança">
     <datalist id="dlAlliances">${allies.map(a => `<option value="${esc(a)}">`).join('')}</datalist>
@@ -409,7 +496,8 @@ function openBattleModal(b){
 
     <div class="sec-head"><span>Composição do rival</span>
       <span class="filters"><button type="button" class="mini-btn" id="fImport">Importar do marcador</button><button type="button" class="mini-btn" id="fSeqEn">&#9654; Preencher seguidos</button></span></div>
-    <div class="face-row">${SLOT_TAGS.map((t, i) => `<div class="face-cell">${faceBtnHTML('en', i, form.enemy[i])}<span>${t}</span></div>`).join('')}</div>
+    ${faceCells('en', i => form.enemy[i])}
+    `}
 
     <label class="f" for="fNote">Observação (opcional)</label>
     <input class="nick-input" id="fNote" type="text" maxlength="200" value="${esc(form.note)}" placeholder="ex.: perdemos o ponto de cura cedo">
@@ -424,7 +512,8 @@ function openBattleModal(b){
   box.addEventListener('input', (e) => {
     const t = e.target;
     if(t.id === 'fDate') form.date = t.value;
-    else if(t.id === 'fAlliance') form.alliance = t.value;
+    else if(t.id === 'fAlliance'){ form.alliance = t.value; const r = $('rbA'); if(r) r.textContent = (form.alliance.trim() || 'Aliança A') + ' venceu'; }
+    else if(t.id === 'fAlliance2'){ form.alliance2 = t.value; const r = $('rbB'); if(r) r.textContent = (form.alliance2.trim() || 'Aliança B') + ' venceu'; }
     else if(t.id === 'fNote') form.note = t.value;
     else if(t.id && t.id.startsWith('fp-')) form.our[Number(t.id.slice(3))].p = t.value;
   });
@@ -434,6 +523,8 @@ function openBattleModal(b){
   });
   box.addEventListener('click', (e) => {
     const t = e.target;
+    const kb = t.closest('[data-kind]');
+    if(kb){ form.kind = kb.dataset.kind; renderBattleForm(); return; }
     const rb = t.closest('.res-btn');
     if(rb){ form.result = rb.dataset.r; updResult(); return; }
     const fb = t.closest('.face-btn');
@@ -460,14 +551,14 @@ function formAccess(kind){
 function pickFormFace(kind, i){
   const a = formAccess(kind);
   runPicker({doc: document, count: SLOT_TAGS.length, start: i, single: true,
-    label: n => (kind === 'our' ? 'Nosso · ' : 'Rival · ') + SLOT_TAGS[n], get: a.get, set: a.set});
+    label: n => (form.kind === 'third' ? (kind === 'our' ? 'Aliança A · ' : 'Aliança B · ') : (kind === 'our' ? 'Nosso · ' : 'Rival · ')) + SLOT_TAGS[n], get: a.get, set: a.set});
 }
 function seqForm(kind){
   const a = formAccess(kind);
   let start = SLOT_TAGS.findIndex((_, i) => !a.get(i));
   if(start < 0) start = 0;
   runPicker({doc: document, count: SLOT_TAGS.length, start, single: false,
-    label: n => (kind === 'our' ? 'Nosso · ' : 'Rival · ') + SLOT_TAGS[n], get: a.get, set: a.set});
+    label: n => (form.kind === 'third' ? (kind === 'our' ? 'Aliança A · ' : 'Aliança B · ') : (kind === 'our' ? 'Nosso · ' : 'Rival · ')) + SLOT_TAGS[n], get: a.get, set: a.set});
 }
 function importFromTracker(){
   const team = form.team;
@@ -478,7 +569,7 @@ function importFromTracker(){
   $('formErr').classList.add('hidden');
 }
 function repeatLast(){
-  const pool = [...battles].filter(b => (b.our || []).length).sort((a, b) => b.ts - a.ts);
+  const pool = [...battles].filter(b => isWe(b) && (b.our || []).length).sort((a, b) => b.ts - a.ts);
   const last = (form.team && pool.find(b => b.team === form.team)) || pool[0];
   if(!last){ formErr('Ainda não há nenhuma batalha com composição para repetir.'); return; }
   SLOT_TAGS.forEach((_, i) => {
@@ -494,13 +585,19 @@ function saveForm(next){
   const f = form;
   if(!f.date) return formErr('Informe a data.');
   if(!f.map) return formErr('Escolha o mapa.');
-  if(!f.alliance.trim()) return formErr('Informe a aliança adversária.');
-  if(!f.result) return formErr('Marque Vitória ou Derrota.');
+  const third = f.kind === 'third';
+  if(!f.alliance.trim()) return formErr(third ? 'Informe a aliança A.' : 'Informe a aliança adversária.');
+  if(third){
+    if(!f.alliance2.trim()) return formErr('Informe a aliança B.');
+    if(f.alliance.trim().toLowerCase() === f.alliance2.trim().toLowerCase()) return formErr('As duas alianças precisam ser diferentes.');
+  }
+  if(!f.result) return formErr(third ? 'Marque quem venceu.' : 'Marque Vitória ou Derrota.');
   const battle = {
-    id: f.id || undefined, date: f.date, map: f.map, alliance: f.alliance.trim(), team: f.team, result: f.result,
-    our: f.our.filter(s => s.p.trim() || s.c).map(s => ({p: s.p.trim(), c: s.c})),
+    id: f.id || undefined, date: f.date, map: f.map, alliance: f.alliance.trim(), team: third ? '' : f.team, result: f.result,
+    our: third ? f.our.filter(s => s.c).map(s => ({p: '', c: s.c})) : f.our.filter(s => s.p.trim() || s.c).map(s => ({p: s.p.trim(), c: s.c})),
     enemy: f.enemy.filter(Boolean), note: f.note.trim()
   };
+  if(third){ battle.kind = 'third'; battle.alliance2 = f.alliance2.trim(); }
   formSavingNext = next;
   if(!send({t: 'battle_save', battle})) return;
   $('fSave').disabled = true;
@@ -509,7 +606,7 @@ function saveForm(next){
 
 function onBattleSaved(){
   if(!form){ return; }
-  lastKept = {date: form.date, alliance: form.alliance.trim()};
+  lastKept = {date: form.date, alliance: form.alliance.trim(), alliance2: form.alliance2.trim(), kind: form.kind};
   closePicker();
   if(formSavingNext){
     showBanner('Batalha salva. Pode lançar a próxima.');

@@ -453,3 +453,8 @@ button{font-family:inherit;}
 .prof-pw summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--dim);}
 .pw-row{display:flex;gap:8px;align-items:center;}
 .pw-row .nick-input{flex:1;font-family:'JetBrains Mono',monospace;}
+
+/* ===== batalhas entre outras alianças ===== */
+.chip-sm.o{background:#2B3A4A;color:#9FB2C4;}
+.hist-line b.winner{color:var(--win);}
+@media(max-width:480px){.row3,.row2{grid-template-columns:1fr;}}

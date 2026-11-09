@@ -28,3 +28,8 @@ Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: 
 
 - Ao logar pela primeira vez, a pessoa define as próprias funções (Tank, DPS Melee, DPS Ranged, Bruiser, Support) e pode colocar uma foto. Em "Meu perfil" ela muda isso, e a própria senha, quando quiser. Cada um edita só o seu.
 - As senhas ficam guardadas só como hash: ninguém consegue ver a senha de ninguém. O admin pode **definir uma nova senha** (com botão "Gerar") ou **resetar** na aba Usuários e Permissões.
+
+## Batalhas entre outras alianças
+
+- Em "Lançar batalha" há a chave **We Sink × aliança / Outras alianças**. No modo "Outras alianças" você informa a aliança A, a aliança B, quem venceu e a composição de cada lado.
+- Esses confrontos NÃO entram nos números da We Sink (KPIs, mapas, alianças enfrentadas, jogadores, Rivais e Nossos). Eles alimentam: Personagens · **Todos** (une We Sink, rivais e outras alianças), Composições · de todos, **Alianças · visão geral** (jogos, % e composição que cada uma mais repete), "O que as outras alianças usam em cada mapa" e o histórico.
