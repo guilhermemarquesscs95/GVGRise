@@ -106,7 +106,7 @@ function rowHTML(tid, kind, i, nick, tp){
   if(!nick){
     const label = isSlot ? rule.label : `Slot ${i + 1}`;
     const icon = isSlot ? roleIcon(rule.roles[0], 16) : '';
-    return `<div class="tm-row empty" ${key}${isAdmin ? ' tabindex="0" role="button"' : ''}>
+    return `<div class="tm-row empty" ${key}${can('equipes') ? ' tabindex="0" role="button"' : ''}>
       <span class="tm-handle"></span><span class="tm-plus">+</span><span class="tm-nick">${esc(label)}</span>${icon ? `<span class="tm-chip dim">${icon}</span>` : ''}</div>`;
   }
   const rid = isSlot ? slotRoleId(nick, i) : (memberRoles(nick).includes('reserva') ? 'reserva' : slotRoleId(nick, 0));
@@ -115,9 +115,9 @@ function rowHTML(tid, kind, i, nick, tp){
   const lead = tp.leader && tp.leader.toLowerCase() === nick.toLowerCase();
   const me = nickname && nick.toLowerCase() === nickname.toLowerCase();
   const chip = r ? `<span class="tm-chip${bad ? ' bad' : ''}" style="--c:${r.color}" title="${esc(r.label)}${bad ? ' (não combina com a vaga)' : ''}">${roleIcon(rid, 16)}</span>` : '<span class="tm-chip dim" title="Sem função cadastrada">?</span>';
-  return `<div class="tm-row${lead ? ' lead' : ''}${me ? ' me' : ''}" ${key}${isAdmin ? ' draggable="true" tabindex="0" role="button"' : ''}>
-    <span class="tm-handle">${isAdmin ? '&#8942;&#8942;' : ''}</span>
-    ${isAdmin
+  return `<div class="tm-row${lead ? ' lead' : ''}${me ? ' me' : ''}" ${key}${can('equipes') ? ' draggable="true" tabindex="0" role="button"' : ''}>
+    <span class="tm-handle">${can('equipes') ? '&#8942;&#8942;' : ''}</span>
+    ${can('equipes')
       ? `<button type="button" class="tm-crown${lead ? ' on' : ''}" data-act="leader" ${key} title="${lead ? 'Tirar capitão' : 'Marcar como capitão'}">&#9819;</button>`
       : (lead ? '<span class="tm-crown on static" title="Capitão">&#9819;</span>' : '')}
     <span class="tm-nick">${esc(nick)}${me ? ' <small>você</small>' : ''}</span>${chip}</div>`;
@@ -127,7 +127,7 @@ function teamCardHTML(t){
   const tp = teamPlan(t.id);
   const miss = coverage(tp);
   const filled = tp.slots.filter(Boolean).length;
-  const mapPill = isAdmin
+  const mapPill = can('equipes')
     ? `<select class="tm-map" data-act="map" data-t="${t.id}" aria-label="Mapa da ${t.name}"><option value="">Mapa a definir</option>${MAPS.map(m => `<option value="${m.id}"${tp.map === m.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>`
     : `<div class="tm-map static">${tp.map ? esc(mapName(tp.map)) : 'Mapa a definir'}</div>`;
   const status = tp.confirmed ? '<span class="tm-status ok">Confirmada</span>' : '<span class="tm-status">Em montagem</span>';
@@ -141,7 +141,7 @@ function teamCardHTML(t){
     <div class="tm-sep"><span>Reservas</span></div>
     <div class="tm-list res">${tp.reserves.map((n, i) => rowHTML(t.id, 'r', i, n, tp)).join('')}</div>
     ${warn}
-    ${isAdmin ? `<div class="tm-actions">
+    ${can('equipes') ? `<div class="tm-actions">
       ${tp.confirmed ? '<button class="primary-btn done" type="button" disabled>&#10003; Equipe confirmada</button>' : `<button class="primary-btn" type="button" data-act="confirm" data-t="${t.id}"${filled ? '' : ' disabled'}>&#10003; Confirmar equipe</button>`}
       <button class="ghost-btn" type="button" data-act="clear" data-t="${t.id}" title="Esvaziar esta equipe">Limpar</button>
     </div>` : ''}
@@ -154,7 +154,7 @@ function renderTeams(){
   const youBox = pl ? `<div class="al-hero" style="padding:12px 16px"><div class="small-dim" style="color:var(--text)">Você está na <b>${TEAMS.find(t => t.id === pl.team).name}</b> como <b>${pl.kind === 'slot' ? SLOT_RULES[pl.idx].label : 'Reserva'}</b>${plannedMapFor(pl.team) ? ' · mapa <b>' + esc(mapName(plannedMapFor(pl.team))) + '</b>' : ''}.</div></div>` : '';
   tabEquipes.innerHTML = `${youBox}
     <p class="small-dim tm-legend">Vagas: <b>1</b> Tank · <b>2</b> Support · <b>3</b> DPS Ranged · <b>4 a 6</b> DPS Melee ou Bruiser · mais 2 reservas.
-      ${isAdmin ? 'Clique numa vaga para escolher o membro da aliança, arraste para trocar de lugar e clique na coroa para marcar o capitão. A equipe só aparece como confirmada (e só vale para o mapa e a escala de cada pessoa) depois de "Confirmar equipe"; qualquer edição volta ela para "Em montagem".' : 'Só equipes confirmadas pelo admin aparecem na sua escala.'}</p>
+      ${can('equipes') ? 'Clique numa vaga para escolher o membro da aliança, arraste para trocar de lugar e clique na coroa para marcar o capitão. A equipe só aparece como confirmada (e só vale para o mapa e a escala de cada pessoa) depois de "Confirmar equipe"; qualquer edição volta ela para "Em montagem".' : 'Só equipes confirmadas pela liderança aparecem na sua escala.'}</p>
     <div class="tm-grid">${TEAMS.map(teamCardHTML).join('')}</div>`;
 }
 
@@ -248,7 +248,7 @@ function openMemberPicker(tid, kind, i){
 }
 
 tabEquipes.addEventListener('click', (e) => {
-  if(!isAdmin) return;
+  if(!can('equipes')) return;
   const act = e.target.closest('[data-act]');
   if(act && act.dataset.act === 'leader'){
     e.stopPropagation();
@@ -274,12 +274,12 @@ tabEquipes.addEventListener('click', (e) => {
   if(row) openMemberPicker(row.dataset.t, row.dataset.k, Number(row.dataset.i));
 });
 tabEquipes.addEventListener('keydown', (e) => {
-  if(!isAdmin || (e.key !== 'Enter' && e.key !== ' ')) return;
+  if(!can('equipes') || (e.key !== 'Enter' && e.key !== ' ')) return;
   const row = e.target.closest && e.target.closest('.tm-row');
   if(row && e.target === row){ e.preventDefault(); openMemberPicker(row.dataset.t, row.dataset.k, Number(row.dataset.i)); }
 });
 tabEquipes.addEventListener('change', (e) => {
-  if(!isAdmin) return;
+  if(!can('equipes')) return;
   const el = e.target;
   if(el.dataset && el.dataset.act === 'map'){
     const tp = teamPlan(el.dataset.t);
@@ -292,7 +292,7 @@ tabEquipes.addEventListener('change', (e) => {
 let dragFrom = null;
 tabEquipes.addEventListener('dragstart', (e) => {
   const row = e.target.closest && e.target.closest('.tm-row');
-  if(!isAdmin || !row || row.classList.contains('empty')){ e.preventDefault(); return; }
+  if(!can('equipes') || !row || row.classList.contains('empty')){ e.preventDefault(); return; }
   dragFrom = {t: row.dataset.t, k: row.dataset.k, i: Number(row.dataset.i)};
   e.dataTransfer.effectAllowed = 'move';
   try{ e.dataTransfer.setData('text/plain', 'vaga'); }catch(err){}
@@ -304,14 +304,14 @@ tabEquipes.addEventListener('dragend', (e) => {
 });
 tabEquipes.addEventListener('dragover', (e) => {
   const row = e.target.closest && e.target.closest('.tm-row');
-  if(!isAdmin || !dragFrom || !row) return;
+  if(!can('equipes') || !dragFrom || !row) return;
   e.preventDefault();
   tabEquipes.querySelectorAll('.over').forEach(x => { if(x !== row) x.classList.remove('over'); });
   row.classList.add('over');
 });
 tabEquipes.addEventListener('drop', (e) => {
   const row = e.target.closest && e.target.closest('.tm-row');
-  if(!isAdmin || !dragFrom || !row) return;
+  if(!can('equipes') || !dragFrom || !row) return;
   e.preventDefault();
   const to = {t: row.dataset.t, k: row.dataset.k, i: Number(row.dataset.i)};
   const from = dragFrom;

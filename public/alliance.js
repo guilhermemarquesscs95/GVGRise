@@ -58,7 +58,7 @@ function visibleMembers(){
 
 function memberRow(p){
   const roles = p.roles || [];
-  if(!isAdmin){
+  if(!can('alianca')){
     return `<div class="mem"><b class="mem-nick">${esc(p.nick)}</b><span class="rbadges">${roles.map(roleBadge).join('') || '<span class="small-dim">sem função</span>'}</span></div>`;
   }
   return `<div class="mem edit">
@@ -74,7 +74,7 @@ function memberRow(p){
 function allianceListHTML(){
   const list = visibleMembers();
   if(!roster.length){
-    return `<div class="an-card"><div class="empty-box">Nenhum membro cadastrado ainda.${isAdmin ? '<br>Use o quadro acima para adicionar os nicks da We Sink.' : '<br>O admin cadastra os membros e as funções.'}</div></div>`;
+    return `<div class="an-card"><div class="empty-box">Nenhum membro cadastrado ainda.${can('alianca') ? '<br>Use o quadro acima para adicionar os nicks da We Sink.' : '<br>O admin cadastra os membros e as funções.'}</div></div>`;
   }
   if(!list.length) return '<div class="an-card"><div class="empty-box">Ninguém com esse filtro.</div></div>';
   const groups = cargos.map(c => ({name: c, items: list.filter(p => p.cargo === c)}));
@@ -140,10 +140,10 @@ function renderAlliance(){
   const focusId = document.activeElement && tabAlianca.contains(document.activeElement) ? document.activeElement.id : '';
   tabAlianca.innerHTML = `<div class="narrow-wide">
     ${allianceSummaryHTML()}
-    ${isAdmin ? addCardHTML() : ''}
+    ${can('alianca') ? addCardHTML() : ''}
     ${filtersHTML()}
     <div id="alList">${allianceListHTML()}</div>
-    ${isAdmin ? cargosCardHTML() : ''}
+    ${can('alianca') ? cargosCardHTML() : ''}
   </div>`;
   if(focusId === 'alSearch'){ const el = $('alSearch'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
 }
@@ -168,15 +168,15 @@ function addMembers(){
 tabAlianca.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act], #alAdd, #alAddCargo');
   if(!el) return;
-  if(el.id === 'alAdd'){ if(isAdmin) addMembers(); return; }
+  if(el.id === 'alAdd'){ if(can('alianca')) addMembers(); return; }
   if(el.id === 'alAddCargo'){
-    if(!isAdmin) return;
+    if(!can('alianca')) return;
     const name = $('alNewCargoName').value.replace(/[<>]/g, '').trim().slice(0, 24);
     if(!name || cargos.some(c => c.toLowerCase() === name.toLowerCase())) return;
     pushAlliance(roster, [...cargos, name]);
     return;
   }
-  if(!isAdmin) return;
+  if(!can('alianca')) return;
   const act = el.dataset.act, nick = el.dataset.nick;
   if(act === 'newrole'){
     const r = el.dataset.role;
@@ -207,7 +207,7 @@ tabAlianca.addEventListener('change', (e) => {
   if(el.id === 'alNewCargo'){ alAddCargo = el.value; return; }
   if(act === 'frole'){ alFilter.role = el.value; renderAlliance(); return; }
   if(act === 'fcargo'){ alFilter.cargo = el.value; renderAlliance(); return; }
-  if(!isAdmin) return;
+  if(!can('alianca')) return;
   if(act === 'cargo'){
     pushAlliance(roster.map(p => p.nick === el.dataset.nick ? {...p, cargo: el.value} : p), cargos);
   } else if(act === 'rename'){
@@ -223,6 +223,6 @@ tabAlianca.addEventListener('input', (e) => {
 });
 tabAlianca.addEventListener('keydown', (e) => {
   if(e.key !== 'Enter') return;
-  if(e.target.id === 'alNew' && isAdmin) addMembers();
-  if(e.target.id === 'alNewCargoName' && isAdmin) $('alAddCargo').click();
+  if(e.target.id === 'alNew' && can('alianca')) addMembers();
+  if(e.target.id === 'alNewCargoName' && can('alianca')) $('alAddCargo').click();
 });

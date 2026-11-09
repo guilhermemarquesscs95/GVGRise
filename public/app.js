@@ -84,6 +84,10 @@ let nickname = '';
 let password = '';            // fica salva neste aparelho para entrar direto da próxima vez
 let adminCreds = null;        // {user, pass} quando este aparelho entrou como admin
 let isAdmin = false;
+let myPerms = ['cura'];       // o que esta conta pode fazer (o servidor confere de novo)
+const can = (p) => isAdmin || myPerms.includes(p);
+let pendingNewPass = '';      // senha pessoal que está sendo criada no primeiro acesso
+let publicCargos = [], publicCargoOf = {};   // para agrupar a lista de nicks do login
 let pendingAdmin = null;      // admin digitado, esperando o servidor confirmar
 let adminAttempt = false;     // tentando entrar como admin a partir da tela de login
 let selectedNick = '';
@@ -112,7 +116,7 @@ const pipBtn = $('pipBtn'), pipLabel = $('pipLabel'), pipNote = $('pipNote');
 const syncDot = $('syncDot'), syncText = $('syncText');
 const loginScreen = $('loginScreen'), bootScreen = $('bootScreen'), loginNick = $('loginNick'), loginPass = $('loginPass');
 const loginBtn = $('loginBtn'), loginError = $('loginError'), userName = $('userName'), logoutBtn = $('logoutBtn');
-const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca');
+const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca'), tabUsuarios = $('tabUsuarios');
 
 /* ---------- preferências locais (nick, senha, time e som ficam neste aparelho) ---------- */
 
@@ -203,7 +207,7 @@ window.addEventListener('online', reconnectNow);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) reconnectNow(); });
 
 function send(obj, quiet){
-  if(ws && ws.readyState === 1 && (authed || obj.t === 'login')){ ws.send(JSON.stringify(obj)); return true; }
+  if(ws && ws.readyState === 1 && (authed || obj.t === 'login' || obj.t === 'first_password')){ ws.send(JSON.stringify(obj)); return true; }
   if(!quiet) showBanner('Sem conexão com o servidor — tentando reconectar...', true);
   return false;
 }
@@ -226,6 +230,8 @@ function onServerMessage(ev){
       clearTimeout(bootTimer);
       if(msg.nick) nickname = msg.nick;
       isAdmin = !!msg.admin;
+      myPerms = Array.isArray(msg.perms) ? msg.perms : ['cura'];
+      if(pendingNewPass){ password = pendingNewPass; pendingNewPass = ''; closeModal(); }
       justLoggedIn = true;
       if(adminAttempt){ adminAttempt = false; closeModal(); }
       savePrefs();
@@ -234,9 +240,22 @@ function onServerMessage(ev){
       updateAdminUI();
       onAuthed();
       return;
+    case 'login_need_password':
+      clearTimeout(loginTimer); clearTimeout(bootTimer);
+      resetLoginButton();
+      openFirstPasswordModal();
+      return;
+    case 'pw_error': showFirstPasswordError(msg.reason === 'igual' ? 'Escolha uma senha diferente da senha padrão do grupo.' : 'A senha precisa ter de 8 a 64 caracteres.'); return;
+    case 'perms':
+      myPerms = Array.isArray(msg.perms) ? msg.perms : ['cura'];
+      updateAdminUI();
+      showBanner('Suas permissões foram atualizadas.');
+      return;
+    case 'users': if(typeof setUsers === 'function') setUsers(msg.list || []); return;
     case 'login_fail': onLoginFail(msg.reason); return;
     case 'admin_state':
       isAdmin = !!msg.admin;
+      if(Array.isArray(msg.perms)) myPerms = msg.perms;
       if(isAdmin && pendingAdmin){ adminCreds = pendingAdmin; savePrefs(); }
       pendingAdmin = null;
       if(isAdmin) closeModal();
@@ -247,7 +266,7 @@ function onServerMessage(ev){
       showAdminError(msg.reason === 'bloqueado' ? 'Muitas tentativas erradas. Espere 1 minuto.' : 'Usuário ou senha de admin incorretos.');
       return;
     case 'denied':
-      showBanner('Só o admin pode fazer isso.', true);
+      showBanner('Você não tem permissão para isso.', true);
       return;
     case 'plan':
       setPlan(msg.plan);
@@ -325,7 +344,7 @@ function setMode(m){
   } else {
     selectionScreen.classList.add('hidden');
     pointsScreen.classList.add('hidden');
-    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden');
+    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden'); tabUsuarios.classList.add('hidden');
     closeFloating();
     closePicker();
     if(m === 'boot') bootScreen.textContent = `Entrando como ${nickname || 'Admin'}...`;
@@ -339,14 +358,18 @@ function setTab(t){
 }
 function applyTab(){
   if(uiMode !== 'app') return;
+  tabsBar.querySelector('[data-tab="usuarios"]').hidden = !isAdmin;
+  if(currentTab === 'usuarios' && !isAdmin) currentTab = 'cura';
   tabCura.classList.toggle('hidden', currentTab !== 'cura');
   tabEquipes.classList.toggle('hidden', currentTab !== 'equipes');
   tabAnalise.classList.toggle('hidden', currentTab !== 'analise');
   tabAlianca.classList.toggle('hidden', currentTab !== 'alianca');
+  tabUsuarios.classList.toggle('hidden', currentTab !== 'usuarios');
   tabsBar.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === currentTab ? 'true' : 'false'));
   if(currentTab === 'analise') enterAnalysis();
   if(currentTab === 'alianca') renderAlliance();
   if(currentTab === 'equipes') renderTeams();
+  if(currentTab === 'usuarios') renderUsers();
   if(currentTab === 'cura') renderMyTeamCard();
 }
 tabsBar.addEventListener('click', (e)=>{
@@ -363,16 +386,20 @@ function renderNickPick(){
   const has = publicRoster.length > 0;
   $('nickPickWrap').classList.toggle('hidden', !has);
   $('nickTypeWrap').classList.toggle('hidden', has);
-  $('loginSub').textContent = has ? 'Escolha o seu nick e digite a senha do grupo.' : 'Use o seu nick do jogo e a senha do grupo.';
+  $('loginSub').textContent = has ? 'Escolha quem você é e digite a sua senha. No primeiro acesso use a senha padrão do grupo: depois você cria a sua.' : 'Use o seu nick do jogo e a senha do grupo.';
   if(has && !publicRoster.some(n => n.toLowerCase() === selectedNick.toLowerCase())) selectedNick = publicRoster.find(n => n.toLowerCase() === nickname.toLowerCase()) || '';
-  $('nickGrid').innerHTML = publicRoster.map(n => `<button type="button" class="nick-chip" data-nick="${esc(n)}" data-active="${n === selectedNick}">${esc(n)}</button>`).join('');
+  if(has){
+    const opt = (n) => `<option value="${esc(n)}"${n === selectedNick ? ' selected' : ''}>${esc(n)}</option>`;
+    const names = [...publicRoster].sort((a, b) => a.localeCompare(b, 'pt-BR', {sensitivity: 'base'}));
+    const groups = [...publicCargos, ''].map(c => ({c, list: names.filter(n => (publicCargoOf[n] || '') === c)}))
+      .concat([{c: '_', list: names.filter(n => publicCargoOf[n] && !publicCargos.includes(publicCargoOf[n]))}]).filter(g => g.list.length);
+    $('nickSelect').innerHTML = `<option value="">Selecione o seu nick…</option>` +
+      groups.map(g => `<optgroup label="${esc(g.c && g.c !== '_' ? g.c : 'Sem cargo')}">${g.list.map(opt).join('')}</optgroup>`).join('');
+  }
 }
-$('nickGrid').addEventListener('click', (e)=>{
-  const b = e.target.closest('.nick-chip');
-  if(!b) return;
-  selectedNick = b.dataset.nick;
-  renderNickPick();
-  loginPass.focus();
+$('nickSelect').addEventListener('change', ()=>{
+  selectedNick = $('nickSelect').value;
+  if(selectedNick) loginPass.focus();
 });
 async function fetchPublicRoster(){
   if(!location.host) return;
@@ -380,6 +407,8 @@ async function fetchPublicRoster(){
     const r = await fetch('/api/roster' + roomQS(), {cache:'no-store'});
     const j = await r.json();
     publicRoster = (j.players || []).map(p => p.nick);
+    publicCargos = j.cargos || [];
+    publicCargoOf = Object.fromEntries((j.players || []).map(p => [p.nick, p.cargo || '']));
   }catch(e){ /* sem lista: campo de texto */ }
   if(uiMode === 'login') renderNickPick();
 }
@@ -414,7 +443,7 @@ function startLoginAttempt(){
 }
 
 function submitLogin(){
-  const typed = publicRoster.length ? selectedNick : loginNick.value.trim();
+  const typed = publicRoster.length ? $('nickSelect').value : loginNick.value.trim();
   const p = loginPass.value;
   if(!location.host){ showLoginError('Abra pelo link do site, não pelo arquivo baixado.'); return; }
   if(publicRoster.length && !typed){ showLoginError('Escolha o seu nick na lista.'); return; }
@@ -428,6 +457,7 @@ function submitLogin(){
 
 function onLoginFail(reason){
   clearTimeout(loginTimer);
+  if(pendingNewPass || $('fpGo')){ pendingNewPass = ''; closeModal(); }
   // o admin salvo neste aparelho deixou de valer (senha trocada): entra só como membro
   if(reason === 'admin' && adminCreds && !adminAttempt && password){
     adminCreds = null;
@@ -463,10 +493,42 @@ function onLoginFail(reason){
   showLogin(wasLoggedBefore && reason === 'senha' ? 'A senha mudou. Entre de novo.' : txt, wasLoggedBefore);
 }
 
+/* ---------- primeiro acesso: criar senha pessoal ---------- */
+function showFirstPasswordError(t){ const e = $('fpErr'); if(e){ e.textContent = t; e.classList.remove('hidden'); } const b = $('fpGo'); if(b){ b.disabled = false; } pendingNewPass = ''; }
+function openFirstPasswordModal(){
+  pendingNewPass = '';
+  openModal(`
+    <h3>Crie a sua senha pessoal</h3>
+    <p class="small-dim" style="margin:6px 0 14px">Este é o primeiro acesso de <b style="color:var(--text)">${esc(nickname)}</b>. Escolha uma senha só sua, com pelo menos 8 caracteres e diferente da senha padrão. Depois disso a senha padrão deixa de valer para você.</p>
+    <label class="f" for="fpNew">Nova senha</label>
+    <input class="nick-input" id="fpNew" type="password" autocomplete="new-password" maxlength="64">
+    <label class="f" for="fpNew2" style="margin-top:10px;display:block">Repita a senha</label>
+    <input class="nick-input" id="fpNew2" type="password" autocomplete="new-password" maxlength="64">
+    <p class="login-error hidden" id="fpErr" style="margin-top:10px"></p>
+    <div class="modal-actions">
+      <button class="primary-btn" id="fpGo" type="button">Salvar e entrar</button>
+      <button class="ghost-btn" id="fpBack" type="button">Voltar</button>
+    </div>`);
+  const bg = $('modalBg'); bg.replaceWith(bg.cloneNode(true));      // obrigatório: clicar fora não fecha
+  const go = () => {
+    const a = $('fpNew').value, b = $('fpNew2').value;
+    if(a.length < 8){ showFirstPasswordError('A senha precisa ter pelo menos 8 caracteres.'); return; }
+    if(a !== b){ showFirstPasswordError('As duas senhas não são iguais.'); return; }
+    $('fpGo').disabled = true;
+    pendingNewPass = a;
+    send({t:'first_password', nick:nickname, pass:password, newpass:a, team:myTeam}, true);
+  };
+  $('fpGo').addEventListener('click', go);
+  $('fpBack').addEventListener('click', () => { pendingNewPass = ''; closeModal(); logout(); });
+  ['fpNew', 'fpNew2'].forEach(id => $(id).addEventListener('keydown', e => { if(e.key === 'Enter') go(); }));
+  $('fpNew').focus();
+}
+
 function logout(){
   password = '';
   adminCreds = null;
   isAdmin = false;
+  myPerms = ['cura'];
   authFailed = true;
   gotState = false;
   savePrefs();

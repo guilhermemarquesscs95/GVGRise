@@ -7,8 +7,10 @@
 // Os horários ao vivo são carimbados pelo SERVIDOR, então relógio errado de um aparelho não atrapalha.
 //
 // LOGIN
-//   - Membro: escolhe o nick (da lista cadastrada) + senha do grupo.
-//   - Admin: usuário + senha de admin. Só o admin cadastra jogadores e lança/edita/apaga batalhas.
+//   - Membro: escolhe o nick (da lista cadastrada). No PRIMEIRO acesso entra com a senha padrão do grupo
+//     e é obrigado a criar uma senha pessoal; depois disso só vale a senha pessoal.
+//   - Admin: usuário + senha de admin. Só o admin define as permissões de cada membro (aba Usuários e Permissões).
+//   - Permissões: cura (usar a ferramenta), equipes, alianca, batalhas. Todo membro vê todas as abas.
 // Tudo é conferido AQUI no servidor. Para trocar as senhas sem mexer no código, crie *Secrets* no
 // painel do Cloudflare (Settings > Variables and Secrets):
 //   GVG_PASSWORD, ADMIN_USER, ADMIN_PASSWORD
@@ -35,6 +37,12 @@ const RESERVE_SLOTS = 2;
 const ROLE_IDS = ["tank", "melee", "ranged", "bruiser", "support", "reserva"];
 const DEFAULT_CARGOS = ["Líder", "Vice-líder", "Oficial", "Membro"];
 const MAX_BATTLES = 5000;
+const PERMS = ["cura", "equipes", "alianca", "batalhas"]; // o que um membro pode fazer (o admin faz tudo + gerencia usuários)
+const ALL_PERMS = [...PERMS, "usuarios"];
+const DEFAULT_PERMS = ["cura"];
+const PW_MIN = 8;
+const PW_MAX = 64;
+const PBKDF2_ITER = 10000;
 const MAX_FAILS = 8; // erros de senha por IP...
 const BLOCK_MS = 60_000; // ...antes de esperar 1 minuto
 
@@ -52,6 +60,15 @@ async function same(given, expected) {
   ]);
   return crypto.subtle.timingSafeEqual(a, b);
 }
+
+const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function hashPw(pw, saltB64) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(pw ?? "").slice(0, 200)), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromB64(saltB64), iterations: PBKDF2_ITER }, key, 256);
+  return toB64(bits);
+}
+const cleanPerms = (list) => PERMS.filter((p) => Array.isArray(list) && list.includes(p));
 
 function cleanRoles(list, legacyReserve) {
   const out = [];
@@ -160,6 +177,7 @@ export class Room extends DurableObject {
     this.roster = null;
     this.cargos = null;
     this.plan = null;
+    this.accounts = null; // { nick(minúsculo): { salt, hash, perms[] } }
     this.fails = new Map(); // ip -> { n, until }
     // "ping" -> "pong" sem acordar o objeto (mantém a conexão viva sem custo)
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
@@ -191,6 +209,37 @@ export class Room extends DurableObject {
     if (!this.plan) this.plan = (await this.ctx.storage.get("plan")) || emptyPlan();
     for (const t of TEAM_IDS) this.plan.teams[t] ||= emptyTeamPlan();
     return this.plan;
+  }
+
+  async getAccounts() {
+    if (!this.accounts) this.accounts = (await this.ctx.storage.get("accounts")) || {};
+    return this.accounts;
+  }
+
+  async permsOf(nick) {
+    const acc = (await this.getAccounts())[String(nick || "").toLowerCase()];
+    return acc && acc.perms ? acc.perms : [...DEFAULT_PERMS];
+  }
+
+  // lista para a aba Usuários e Permissões (só vai para o admin)
+  async userList() {
+    const roster = await this.getRoster();
+    const acc = await this.getAccounts();
+    return roster.map((p) => {
+      const a = acc[p.nick.toLowerCase()];
+      return { nick: p.nick, cargo: p.cargo, hasPassword: !!(a && a.hash), perms: a && a.perms ? a.perms : [...DEFAULT_PERMS] };
+    });
+  }
+
+  async sendUsers(onlyWs) {
+    const payload = JSON.stringify({ t: "users", list: await this.userList() });
+    for (const w of onlyWs ? [onlyWs] : this.ctx.getWebSockets()) {
+      const at = w.deserializeAttachment();
+      if (!at || !at.auth || !at.admin) continue;
+      try {
+        w.send(payload);
+      } catch (_) {}
+    }
   }
 
   async getCargos() {
@@ -246,7 +295,7 @@ export class Room extends DurableObject {
     const url = new URL(request.url);
     if (url.pathname === "/roster") {
       const roster = await this.getRoster();
-      return new Response(JSON.stringify({ players: roster.map((p) => ({ nick: p.nick })) }), {
+      return new Response(JSON.stringify({ players: roster.map((p) => ({ nick: p.nick, cargo: p.cargo })), cargos: await this.getCargos() }), {
         headers: { "content-type": "application/json", "cache-control": "no-store" },
       });
     }
@@ -261,6 +310,7 @@ export class Room extends DurableObject {
       ip: request.headers.get("CF-Connecting-IP") || "local",
       auth: false,
       admin: false,
+      perms: [],
       nick: "",
       team: null,
     });
@@ -290,44 +340,83 @@ export class Room extends DurableObject {
     const now = Date.now();
 
     // ---------- login ----------
-    if (msg.t === "login") {
+    // "login" = entrar; "first_password" = primeiro acesso (senha padrão + nova senha pessoal)
+    if (msg.t === "login" || msg.t === "first_password") {
       if (a.auth) return;
-      const fail = (reason) => ws.send(JSON.stringify({ t: "login_fail", reason }));
+      const send = (o) => ws.send(JSON.stringify(o));
+      const fail = (reason) => send({ t: "login_fail", reason });
       if (this.isBlocked(a.ip)) return fail("bloqueado");
-      const wantsAdmin = !!msg.admin;
+      const first = msg.t === "first_password";
+      const group = this.env.GVG_PASSWORD || DEFAULT_PASSWORD;
+      const roster = await this.getRoster();
+      const accounts = await this.getAccounts();
+      let nick = cleanNick(msg.nick);
       let isAdmin = false;
-      if (wantsAdmin) {
+      let perms = [...DEFAULT_PERMS];
+      let newAccount = false;
+
+      if (!first && msg.admin) {
         isAdmin = await this.checkAdmin(msg.admin);
         if (!isAdmin) {
           this.registerFail(a.ip);
           return fail("admin");
         }
-      } else if (!(await same(msg.pass, this.env.GVG_PASSWORD || DEFAULT_PASSWORD))) {
-        this.registerFail(a.ip);
-        return fail("senha");
-      }
-      let nick = cleanNick(msg.nick);
-      const roster = await this.getRoster();
-      if (roster.length && nick) {
-        const hit = roster.find((p) => p.nick.toLowerCase() === nick.toLowerCase());
+        const hit = nick && roster.find((p) => p.nick.toLowerCase() === nick.toLowerCase());
         if (hit) nick = hit.nick;
-        else if (!isAdmin) return fail("roster");
+        if (nick.length < 2) nick = "Admin";
+        perms = [...ALL_PERMS];
+      } else if (roster.length) {
+        const hit = nick && roster.find((p) => p.nick.toLowerCase() === nick.toLowerCase());
+        if (!hit) return fail("roster");
+        nick = hit.nick;
+        const key = nick.toLowerCase();
+        const acc = accounts[key];
+        if (acc && acc.hash) {
+          // já tem senha pessoal: a senha padrão não vale mais
+          if (first) return fail("senha");
+          if (!(await same(await hashPw(msg.pass, acc.salt), acc.hash))) {
+            this.registerFail(a.ip);
+            return fail("senha");
+          }
+          perms = acc.perms || [...DEFAULT_PERMS];
+        } else {
+          if (!(await same(msg.pass, group))) {
+            this.registerFail(a.ip);
+            return fail("senha");
+          }
+          if (!first) return send({ t: "login_need_password" }); // senha padrão certa: precisa criar a própria
+          const np = String(msg.newpass ?? "");
+          if (np.length < PW_MIN || np.length > PW_MAX) return send({ t: "pw_error", reason: "curta" });
+          if (await same(np, group)) return send({ t: "pw_error", reason: "igual" });
+          const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+          perms = acc && acc.perms ? acc.perms : [...DEFAULT_PERMS];
+          accounts[key] = { salt, hash: await hashPw(np, salt), perms };
+          await this.ctx.storage.put("accounts", accounts);
+          newAccount = true;
+        }
+      } else {
+        // ainda não há membros cadastrados: nick livre + senha do grupo
+        if (!(await same(msg.pass, group))) {
+          this.registerFail(a.ip);
+          return fail("senha");
+        }
+        if (nick.length < 2) return fail("nick");
       }
-      if (!isAdmin && nick.length < 2) return fail("nick");
-      if (isAdmin && nick.length < 2) nick = "Admin";
+
       this.fails.delete(a.ip);
       a.auth = true;
       a.admin = isAdmin;
+      a.perms = perms;
       a.nick = nick;
       a.team = TEAM_IDS.includes(String(msg.team ?? "")) ? String(msg.team) : null;
       ws.serializeAttachment(a);
       const data = await this.getData();
       const cargos = await this.getCargos();
       const plan = await this.getPlan();
-      ws.send(JSON.stringify({ t: "login_ok", you: a.id, nick, admin: isAdmin }));
-      ws.send(
-        JSON.stringify({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos, plan }),
-      );
+      send({ t: "login_ok", you: a.id, nick, admin: isAdmin, perms });
+      send({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos, plan });
+      if (isAdmin) await this.sendUsers(ws);
+      if (newAccount) await this.sendUsers();
       this.broadcast({ t: "presence", presence: this.presence() }, ws);
       return;
     }
@@ -340,8 +429,10 @@ export class Room extends DurableObject {
       if (await this.checkAdmin(msg)) {
         this.fails.delete(a.ip);
         a.admin = true;
+        a.perms = [...ALL_PERMS];
         ws.serializeAttachment(a);
-        ws.send(JSON.stringify({ t: "admin_state", admin: true }));
+        ws.send(JSON.stringify({ t: "admin_state", admin: true, perms: a.perms }));
+        await this.sendUsers(ws);
       } else {
         this.registerFail(a.ip);
         ws.send(JSON.stringify({ t: "admin_fail", reason: "admin" }));
@@ -350,13 +441,17 @@ export class Room extends DurableObject {
     }
     if (msg.t === "admin_logout") {
       a.admin = false;
+      a.perms = await this.permsOf(a.nick);
       ws.serializeAttachment(a);
-      ws.send(JSON.stringify({ t: "admin_state", admin: false }));
+      ws.send(JSON.stringify({ t: "admin_state", admin: false, perms: a.perms }));
       return;
     }
 
     const data = await this.getData();
     const team = String(msg.team ?? "");
+    const can = (p) => a.admin || (a.perms || DEFAULT_PERMS).includes(p);
+    const deny = () => ws.send(JSON.stringify({ t: "denied" }));
+    if (["map", "point", "enemy", "echar", "echar_clear"].includes(msg.t) && !can("cura")) return deny();
 
     switch (msg.t) {
       case "hello": {
@@ -439,7 +534,7 @@ export class Room extends DurableObject {
 
       // cadastro da aliança: membros (nick, funções, cargo) e a lista de cargos
       case "alliance_set": {
-        if (!a.admin) return ws.send(JSON.stringify({ t: "denied" }));
+        if (!can("alianca")) return deny();
         const cargos = sanitizeCargos(msg.cargos);
         if (!cargos) return;
         const players = sanitizePlayers(msg.players, cargos);
@@ -448,6 +543,18 @@ export class Room extends DurableObject {
         this.cargos = cargos;
         await this.ctx.storage.put({ roster: players, cargos });
         this.broadcast({ t: "alliance", roster: players, cargos });
+        // quem saiu da aliança perde a conta (senha e permissões)
+        const accs = await this.getAccounts();
+        const keep = new Set(players.map((p) => p.nick.toLowerCase()));
+        let accChanged = false;
+        for (const k of Object.keys(accs)) {
+          if (!keep.has(k)) {
+            delete accs[k];
+            accChanged = true;
+          }
+        }
+        if (accChanged) await this.ctx.storage.put("accounts", accs);
+        await this.sendUsers();
         // quem saiu da aliança sai também das equipes
         const plan = await this.getPlan();
         let changed = false;
@@ -467,7 +574,7 @@ export class Room extends DurableObject {
 
       // escala de uma equipe (admin). Quem for colocado aqui sai das outras equipes.
       case "plan_set": {
-        if (!a.admin) return ws.send(JSON.stringify({ t: "denied" }));
+        if (!can("equipes")) return deny();
         if (!TEAM_IDS.includes(team)) return;
         const roster = await this.getRoster();
         const plan = await this.getPlan();
@@ -487,8 +594,55 @@ export class Room extends DurableObject {
         return;
       }
 
+      // ---------- usuários e permissões (só admin) ----------
+      case "users_get": {
+        if (!a.admin) return deny();
+        await this.sendUsers(ws);
+        return;
+      }
+
+      case "perms_set": {
+        if (!a.admin) return deny();
+        const roster = await this.getRoster();
+        const hit = roster.find((p) => p.nick.toLowerCase() === cleanNick(msg.nick).toLowerCase());
+        if (!hit) return;
+        const perms = cleanPerms(msg.perms);
+        const accs = await this.getAccounts();
+        const key = hit.nick.toLowerCase();
+        accs[key] = { ...(accs[key] || {}), perms };
+        await this.ctx.storage.put("accounts", accs);
+        // quem está conectado agora recebe as novas permissões na hora
+        for (const w of this.ctx.getWebSockets()) {
+          const at = w.deserializeAttachment();
+          if (!at || !at.auth || at.admin || String(at.nick).toLowerCase() !== key) continue;
+          at.perms = perms;
+          w.serializeAttachment(at);
+          try {
+            w.send(JSON.stringify({ t: "perms", perms }));
+          } catch (_) {}
+        }
+        await this.sendUsers();
+        return;
+      }
+
+      // apaga a senha pessoal: no próximo acesso a pessoa entra com a senha padrão e cria outra
+      case "pw_reset": {
+        if (!a.admin) return deny();
+        const roster = await this.getRoster();
+        const hit = roster.find((p) => p.nick.toLowerCase() === cleanNick(msg.nick).toLowerCase());
+        if (!hit) return;
+        const accs = await this.getAccounts();
+        const key = hit.nick.toLowerCase();
+        if (accs[key]) {
+          accs[key] = { perms: accs[key].perms || [...DEFAULT_PERMS] };
+          await this.ctx.storage.put("accounts", accs);
+        }
+        await this.sendUsers();
+        return;
+      }
+
       case "battle_save": {
-        if (!a.admin) return ws.send(JSON.stringify({ t: "denied" }));
+        if (!can("batalhas")) return deny();
         const clean = sanitizeBattle(msg.battle);
         if (!clean) return ws.send(JSON.stringify({ t: "battle_error" }));
         let id = String((msg.battle && msg.battle.id) ?? "");
@@ -510,7 +664,7 @@ export class Room extends DurableObject {
       }
 
       case "battle_del": {
-        if (!a.admin) return ws.send(JSON.stringify({ t: "denied" }));
+        if (!can("batalhas")) return deny();
         const id = String(msg.id ?? "");
         if (!/^[a-z0-9]{4,20}$/.test(id)) return;
         await this.ctx.storage.delete("b:" + id);

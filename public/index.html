@@ -44,15 +44,15 @@
       <h2>Entrar</h2>
       <p class="sub" id="loginSub">Escolha o seu nick e digite a senha do grupo.</p>
       <div id="nickPickWrap">
-        <label>Quem é você?</label>
-        <div class="nick-grid" id="nickGrid"></div>
+        <label for="nickSelect">Quem é você?</label>
+        <select id="nickSelect" class="nick-input nick-select"></select>
       </div>
       <div id="nickTypeWrap">
         <label for="loginNick">Nick</label>
         <input type="text" id="loginNick" class="nick-input" placeholder="como te chamam no jogo" maxlength="20" autocomplete="username">
       </div>
       <label for="loginPass">Senha</label>
-      <input type="password" id="loginPass" class="nick-input" placeholder="senha do grupo" autocomplete="current-password">
+      <input type="password" id="loginPass" class="nick-input" placeholder="sua senha" autocomplete="current-password">
       <p class="login-error hidden" id="loginError"></p>
       <button class="primary-btn" id="loginBtn" type="button">Entrar</button>
     </div>
@@ -63,6 +63,7 @@
     <button class="tab" role="tab" data-tab="equipes" type="button">Equipes</button>
     <button class="tab" role="tab" data-tab="analise" type="button">Análise</button>
     <button class="tab" role="tab" data-tab="alianca" type="button">Aliança</button>
+    <button class="tab" role="tab" data-tab="usuarios" type="button" hidden>Usuários e Permissões</button>
   </nav>
 
   <!-- ===== aba Cura ===== -->
@@ -112,6 +113,7 @@
 
   <!-- ===== aba Aliança ===== -->
   <div id="tabAlianca" class="hidden"></div>
+  <div id="tabUsuarios" class="hidden"></div>
 
   <footer>
     Tudo sincroniza em tempo real entre quem estiver na mesma equipe: mapa, pontos de cura, inimigos e personagens.<br>
@@ -125,10 +127,11 @@
 
 <script src="chars.js?v=1"></script>
 <script src="faces.js?v=2"></script>
-<script src="app.js?v=4"></script>
-<script src="analysis.js?v=4"></script>
-<script src="alliance.js?v=4"></script>
-<script src="teams.js?v=4"></script>
+<script src="app.js?v=5"></script>
+<script src="analysis.js?v=5"></script>
+<script src="alliance.js?v=5"></script>
+<script src="teams.js?v=5"></script>
+<script src="users.js?v=1"></script>
 <script>init();</script>
 </body>
 </html>

@@ -238,7 +238,7 @@ function historyCard(list){
         ${(b.our || []).some(s => s.p) ? `<div class="hist-note">${(b.our || []).filter(s => s.p).map(s => esc(s.p)).join(', ')}</div>` : ''}
         ${b.note ? `<div class="hist-note">“${esc(b.note)}”</div>` : ''}
       </div>
-      ${isAdmin ? `<div class="hist-tools"><button class="mini-btn" data-act="edit" data-v="${b.id}">Editar</button><button class="mini-btn" data-act="del" data-v="${b.id}">Apagar</button></div>` : ''}
+      ${can('batalhas') ? `<div class="hist-tools"><button class="mini-btn" data-act="edit" data-v="${b.id}">Editar</button><button class="mini-btn" data-act="del" data-v="${b.id}">Apagar</button></div>` : ''}
     </div>`;
   }).join('');
   return `<div class="an-card full"><h3>Histórico</h3><p class="sub">Batalhas lançadas, da mais recente para a mais antiga.</p>
@@ -264,18 +264,18 @@ function renderAnalysis(){
       ${hasFilter ? '<button class="mini-btn" data-act="clearf">Limpar filtros</button>' : ''}
     </div>
     <div class="filters">
-      ${isAdmin ? '<button class="mini-btn on" data-act="new">+ Lançar batalha</button>' : ''}
+      ${can('batalhas') ? '<button class="mini-btn on" data-act="new">+ Lançar batalha</button>' : ''}
       ${all.length ? '<button class="mini-btn" data-act="csv">Baixar CSV</button>' : ''}
-      ${isAdmin && all.length ? '<button class="mini-btn" data-act="backup">Backup</button>' : ''}
+      ${can('batalhas') && all.length ? '<button class="mini-btn" data-act="backup">Backup</button>' : ''}
     </div>
   </div>`;
 
   if(!battlesLoaded){
     html += '<div class="placeholder">Carregando batalhas...</div>';
   } else if(!all.length){
-    html += `<div class="an-card"><div class="empty-box">Nenhuma batalha lançada ainda.<br>${isAdmin
+    html += `<div class="an-card"><div class="empty-box">Nenhuma batalha lançada ainda.<br>${can('batalhas')
       ? 'Clique em <b>+ Lançar batalha</b> para registrar a primeira.'
-      : 'O admin lança as vitórias e derrotas depois de cada GVG. Para lançar, entre como admin (botão no canto superior direito).'}</div></div>`;
+      : 'Quem tem permissão lança as vitórias e derrotas depois de cada GVG.'}</div></div>`;
   } else if(!list.length){
     html += '<div class="an-card"><div class="empty-box">Nenhuma batalha neste filtro.</div></div>';
   } else {
@@ -378,7 +378,7 @@ function updResult(){
 }
 
 function openBattleModal(b){
-  if(!isAdmin) return;
+  if(!can('batalhas')) return;
   if(!battlesLoaded) send({t: 'get_battles'}, true);
   form = b ? formFrom(b) : blankForm();
   formSavingNext = false;

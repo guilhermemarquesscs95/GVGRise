@@ -16,3 +16,10 @@ Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: 
 - **Análise**: vitórias/derrotas por mapa, aliança, personagem, composição e jogador (lançamento só pelo admin).
 - **Aliança**: membros com funções (Tank, DPS Melee, DPS Ranged, Bruiser, Support, Reserva) e cargos.
   O admin adiciona membros, marca as funções, troca o cargo e cria/renomeia/reordena/apaga cargos.
+
+## Contas, senha pessoal e permissões
+
+- Cada membro cadastrado na aba Aliança é uma conta. No primeiro acesso ele escolhe o nick na lista, entra com a senha padrão do grupo (`GVG_PASSWORD`) e é obrigado a criar uma senha pessoal (8+ caracteres). Depois disso a senha padrão não vale mais para ele.
+- O admin (aba "Usuários e Permissões") escolhe o que cada membro pode fazer: Usar o Controle de Cura, Gerenciar Equipes, Gerenciar Aliança, Lançar batalhas. Há atalhos Líder, Oficial e Oldsinker. Todos veem todas as abas.
+- "Resetar senha" apaga a senha pessoal; no próximo acesso a pessoa volta ao primeiro acesso.
+- Tudo é conferido no servidor, não só escondido na tela.
