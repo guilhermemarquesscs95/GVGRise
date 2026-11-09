@@ -280,6 +280,17 @@ export class Room extends DurableObject {
     this.fails.set(ip, f);
   }
 
+  // nicks de todo mundo que está conectado (com ou sem equipe escolhida), para o ponto verde da aba Equipes
+  online(exclude) {
+    const out = new Set();
+    for (const w of this.ctx.getWebSockets()) {
+      if (w === exclude) continue;
+      const a = w.deserializeAttachment();
+      if (a && a.auth && a.nick) out.add(String(a.nick).toLowerCase());
+    }
+    return [...out];
+  }
+
   presence(exclude) {
     const out = [];
     for (const w of this.ctx.getWebSockets()) {
@@ -429,10 +440,10 @@ export class Room extends DurableObject {
       const plan = await this.getPlan();
       const mine = accounts[nick.toLowerCase()];
       send({ t: "login_ok", you: a.id, nick, admin: isAdmin, perms, profileSet: !!(mine && mine.profileSet) });
-      send({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos, plan, avatars: await this.avatarMap() });
+      send({ t: "state", now: Date.now(), data, presence: this.presence(), online: this.online(), you: a.id, roster, cargos, plan, avatars: await this.avatarMap() });
       if (isAdmin) await this.sendUsers(ws);
       if (newAccount) await this.sendUsers();
-      this.broadcast({ t: "presence", presence: this.presence() }, ws);
+      this.broadcast({ t: "presence", presence: this.presence(), online: this.online() }, ws);
       return;
     }
 
@@ -472,7 +483,7 @@ export class Room extends DurableObject {
       case "hello": {
         a.team = TEAM_IDS.includes(team) ? team : null;
         ws.serializeAttachment(a);
-        this.broadcast({ t: "presence", presence: this.presence() });
+        this.broadcast({ t: "presence", presence: this.presence(), online: this.online() });
         return;
       }
 
@@ -774,11 +785,11 @@ export class Room extends DurableObject {
     } catch (_) {
       /* já fechado */
     }
-    this.broadcast({ t: "presence", presence: this.presence(ws) }, ws);
+    this.broadcast({ t: "presence", presence: this.presence(ws), online: this.online(ws) }, ws);
   }
 
   async webSocketError(ws) {
-    this.broadcast({ t: "presence", presence: this.presence(ws) }, ws);
+    this.broadcast({ t: "presence", presence: this.presence(ws), online: this.online(ws) }, ws);
   }
 }
 

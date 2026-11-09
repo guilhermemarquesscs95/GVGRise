@@ -77,7 +77,8 @@ let plan = null;              // escala das equipes: {teams:{'1':{map,slots,rese
 let justLoggedIn = false;     // true até chegar o primeiro estado depois do login
 let cargos = [];              // cargos da aliança, na ordem de exibição
 let publicRoster = [];        // só os nicks, para a tela de login
-let presence = [];            // quem está conectado: [{id, nick, team}]
+let presence = [];
+let onlineNicks = new Set();   // nicks conectados agora (minúsculos), de qualquer equipe            // quem está conectado: [{id, nick, team}]
 let myId = null;              // id do meu socket (o servidor informa)
 let myTeam = null;
 let nickname = '';
@@ -294,6 +295,7 @@ function onServerMessage(ev){
       }
       if(msg.you) myId = msg.you;
       if(msg.presence) presence = msg.presence;
+      if(msg.online){ onlineNicks = new Set(msg.online); if(typeof updateOnlineDots === 'function') updateOnlineDots(); }
       if(msg.avatars) setAvatars(msg.avatars);
       if(msg.roster) setAlliance(msg.roster, msg.cargos);
       if(msg.plan) setPlan(msg.plan);
@@ -307,6 +309,7 @@ function onServerMessage(ev){
     }
     case 'presence':
       presence = msg.presence || [];
+      if(msg.online){ onlineNicks = new Set(msg.online); if(typeof updateOnlineDots === 'function') updateOnlineDots(); }
       renderPresence();
       return;
   }
@@ -546,6 +549,7 @@ function logout(){
   closeFloating();
   state = emptyState();
   presence = [];
+  onlineNicks = new Set();
   myId = null;
   browsing = false;
   currentTab = 'cura';

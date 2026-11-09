@@ -478,3 +478,5 @@ button{font-family:inherit;}
 @media(max-width:560px){.tm-grid{grid-template-columns:minmax(0,1fr);}.tm-handle{display:inline-block;}}
 .prof-logout{margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline);display:flex;justify-content:flex-end;}
 .prof-logout .ghost-btn{color:#FF8A8A;border-color:#5A2A2D;}
+.tm-dot{width:9px;height:9px;border-radius:50%;background:#5B6B7B;flex:none;box-shadow:0 0 0 2px var(--panel-2);}
+.tm-dot.on{background:#35C48C;box-shadow:0 0 0 2px var(--panel-2),0 0 6px #35C48C;}

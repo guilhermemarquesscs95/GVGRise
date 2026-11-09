@@ -28,6 +28,17 @@ function slotRoleId(nick, i){
   return rs.find(r => SLOT_RULES[i].roles.includes(r)) || rs.find(r => r !== 'reserva') || rs[0] || '';
 }
 
+const isOnline = (nick) => onlineNicks.has(String(nick || '').toLowerCase());
+// atualiza as bolinhas na tela sem refazer as equipes (não atrapalha quem está arrastando)
+function updateOnlineDots(){
+  if(typeof tabEquipes === 'undefined' || !tabEquipes) return;
+  tabEquipes.querySelectorAll('.tm-dot').forEach(d => {
+    const on = onlineNicks.has(d.dataset.nick);
+    d.classList.toggle('on', on);
+    d.title = on ? 'online' : 'offline';
+  });
+}
+
 function setPlan(p){
   plan = p;
   if(uiMode !== 'app') return;
@@ -120,7 +131,7 @@ function rowHTML(tid, kind, i, nick, tp){
     ${can('equipes')
       ? `<button type="button" class="tm-crown${lead ? ' on' : ''}" data-act="leader" ${key} title="${lead ? 'Tirar capitão' : 'Marcar como capitão'}">&#9819;</button>`
       : (lead ? '<span class="tm-crown on static" title="Capitão">&#9819;</span>' : '')}
-    ${avatarHTML(nick, 24)}<span class="tm-nick">${esc(nick)}${me ? ' <small>você</small>' : ''}</span>${chip}</div>`;
+    <span class="tm-dot${isOnline(nick) ? ' on' : ''}" data-nick="${esc(nick.toLowerCase())}" title="${isOnline(nick) ? 'online' : 'offline'}"></span>${avatarHTML(nick, 24)}<span class="tm-nick">${esc(nick)}${me ? ' <small>você</small>' : ''}</span>${chip}</div>`;
 }
 
 function teamCardHTML(t){
