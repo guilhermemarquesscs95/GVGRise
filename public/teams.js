@@ -120,7 +120,7 @@ function rowHTML(tid, kind, i, nick, tp){
     ${can('equipes')
       ? `<button type="button" class="tm-crown${lead ? ' on' : ''}" data-act="leader" ${key} title="${lead ? 'Tirar capitão' : 'Marcar como capitão'}">&#9819;</button>`
       : (lead ? '<span class="tm-crown on static" title="Capitão">&#9819;</span>' : '')}
-    <span class="tm-nick">${esc(nick)}${me ? ' <small>você</small>' : ''}</span>${chip}</div>`;
+    ${avatarHTML(nick, 24)}<span class="tm-nick">${esc(nick)}${me ? ' <small>você</small>' : ''}</span>${chip}</div>`;
 }
 
 function teamCardHTML(t){

@@ -231,6 +231,7 @@ function onServerMessage(ev){
       if(msg.nick) nickname = msg.nick;
       isAdmin = !!msg.admin;
       myPerms = Array.isArray(msg.perms) ? msg.perms : ['cura'];
+      myProfileSet = msg.profileSet !== false;
       if(pendingNewPass){ password = pendingNewPass; pendingNewPass = ''; closeModal(); }
       justLoggedIn = true;
       if(adminAttempt){ adminAttempt = false; closeModal(); }
@@ -251,6 +252,13 @@ function onServerMessage(ev){
       updateAdminUI();
       showBanner('Suas permissões foram atualizadas.');
       return;
+    case 'avatar': setAvatar(msg.nick, msg.avatar); return;
+    case 'avatar_error': showBanner('Foto muito grande ou inválida.', true); return;
+    case 'profile_ok': onProfileSaved(); return;
+    case 'pwc_ok': onPwChanged(true); return;
+    case 'pwc_error': onPwChanged(false, msg.reason); return;
+    case 'pwa_ok': closeModal(); showBanner('Senha de ' + msg.nick + ' definida.'); return;
+    case 'pwa_error': showBanner('A senha precisa ter de 8 a 64 caracteres.', true); return;
     case 'users': if(typeof setUsers === 'function') setUsers(msg.list || []); return;
     case 'login_fail': onLoginFail(msg.reason); return;
     case 'admin_state':
@@ -286,12 +294,13 @@ function onServerMessage(ev){
       }
       if(msg.you) myId = msg.you;
       if(msg.presence) presence = msg.presence;
+      if(msg.avatars) setAvatars(msg.avatars);
       if(msg.roster) setAlliance(msg.roster, msg.cargos);
       if(msg.plan) setPlan(msg.plan);
       const prevMap = currentMapId();
       state = normalizeState(msg.data);
       gotState = true;
-      if(justLoggedIn){ justLoggedIn = false; autoPickMyTeam(); }
+      if(justLoggedIn){ justLoggedIn = false; autoPickMyTeam(); setTimeout(maybePromptProfile, 400); }
       if(uiMode !== 'app') setMode('app');
       onStateChanged(prevMap);
       return;
@@ -339,6 +348,7 @@ function setMode(m){
   tabsBar.classList.toggle('hidden', m !== 'app');
   if(m === 'app'){
     userName.textContent = nickname;
+    if(typeof updateProfileBtn === 'function') updateProfileBtn();
     if(pointsScreen.classList.contains('hidden')) selectionScreen.classList.remove('hidden');
     applyTab();
   } else {

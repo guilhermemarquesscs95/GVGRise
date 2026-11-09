@@ -59,10 +59,10 @@ function visibleMembers(){
 function memberRow(p){
   const roles = p.roles || [];
   if(!can('alianca')){
-    return `<div class="mem"><b class="mem-nick">${esc(p.nick)}</b><span class="rbadges">${roles.map(roleBadge).join('') || '<span class="small-dim">sem função</span>'}</span></div>`;
+    return `<div class="mem">${avatarHTML(p.nick, 28)}<b class="mem-nick">${esc(p.nick)}</b><span class="rbadges">${roles.map(roleBadge).join('') || '<span class="small-dim">sem função</span>'}</span></div>`;
   }
   return `<div class="mem edit">
-    <b class="mem-nick">${esc(p.nick)}</b>
+    ${avatarHTML(p.nick, 28)}<b class="mem-nick">${esc(p.nick)}</b>
     <span class="rbadges">${ROLES.map(r => `<button type="button" class="rchip" data-act="role" data-nick="${esc(p.nick)}" data-role="${r.id}" data-on="${roles.includes(r.id)}" style="--c:${r.color}">${roleIcon(r.id, 13)}${r.label}</button>`).join('')}</span>
     <select class="mem-sel" data-act="cargo" data-nick="${esc(p.nick)}" aria-label="Cargo de ${esc(p.nick)}">
       <option value="">Sem cargo</option>${cargos.map(c => `<option value="${esc(c)}"${p.cargo === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}

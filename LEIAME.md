@@ -23,3 +23,8 @@ Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: 
 - O admin (aba "Usuários e Permissões") escolhe o que cada membro pode fazer: Usar o Controle de Cura, Gerenciar Equipes, Gerenciar Aliança, Lançar batalhas. Há atalhos Líder, Oficial e Oldsinker. Todos veem todas as abas.
 - "Resetar senha" apaga a senha pessoal; no próximo acesso a pessoa volta ao primeiro acesso.
 - Tudo é conferido no servidor, não só escondido na tela.
+
+## Perfil de cada membro
+
+- Ao logar pela primeira vez, a pessoa define as próprias funções (Tank, DPS Melee, DPS Ranged, Bruiser, Support) e pode colocar uma foto. Em "Meu perfil" ela muda isso, e a própria senha, quando quiser. Cada um edita só o seu.
+- As senhas ficam guardadas só como hash: ninguém consegue ver a senha de ninguém. O admin pode **definir uma nova senha** (com botão "Gerar") ou **resetar** na aba Usuários e Permissões.

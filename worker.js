@@ -43,6 +43,8 @@ const DEFAULT_PERMS = ["cura"];
 const PW_MIN = 8;
 const PW_MAX = 64;
 const PBKDF2_ITER = 10000;
+const MAX_AVATAR = 30000; // caracteres do data URL (a tela reduz a foto para 96x96)
+const AVATAR_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 const MAX_FAILS = 8; // erros de senha por IP...
 const BLOCK_MS = 60_000; // ...antes de esperar 1 minuto
 
@@ -231,6 +233,12 @@ export class Room extends DurableObject {
     });
   }
 
+  async avatarMap() {
+    const out = {};
+    for (const [k, a] of Object.entries(await this.getAccounts())) if (a && a.avatar) out[k] = a.avatar;
+    return out;
+  }
+
   async sendUsers(onlyWs) {
     const payload = JSON.stringify({ t: "users", list: await this.userList() });
     for (const w of onlyWs ? [onlyWs] : this.ctx.getWebSockets()) {
@@ -327,7 +335,7 @@ export class Room extends DurableObject {
   }
 
   async webSocketMessage(ws, message) {
-    if (typeof message !== "string" || message.length > 12000) return;
+    if (typeof message !== "string" || message.length > 40000) return;
     let msg;
     try {
       msg = JSON.parse(message);
@@ -413,8 +421,9 @@ export class Room extends DurableObject {
       const data = await this.getData();
       const cargos = await this.getCargos();
       const plan = await this.getPlan();
-      send({ t: "login_ok", you: a.id, nick, admin: isAdmin, perms });
-      send({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos, plan });
+      const mine = accounts[nick.toLowerCase()];
+      send({ t: "login_ok", you: a.id, nick, admin: isAdmin, perms, profileSet: !!(mine && mine.profileSet) });
+      send({ t: "state", now: Date.now(), data, presence: this.presence(), you: a.id, roster, cargos, plan, avatars: await this.avatarMap() });
       if (isAdmin) await this.sendUsers(ws);
       if (newAccount) await this.sendUsers();
       this.broadcast({ t: "presence", presence: this.presence() }, ws);
@@ -594,6 +603,83 @@ export class Room extends DurableObject {
         return;
       }
 
+      // ---------- perfil (cada um mexe só no seu: o nick vem da conexão, nunca da mensagem) ----------
+      case "profile_set": {
+        const roster = await this.getRoster();
+        const me = roster.find((p) => p.nick.toLowerCase() === String(a.nick).toLowerCase());
+        if (!me) return;
+        const picked = cleanRoles(msg.roles).filter((r) => r !== "reserva");
+        if (!picked.length) return;
+        // "Reserva" é decisão da liderança: se já tinha, continua
+        me.roles = cleanRoles([...picked, ...(me.roles.includes("reserva") ? ["reserva"] : [])]);
+        const accs = await this.getAccounts();
+        const key = me.nick.toLowerCase();
+        accs[key] = { ...(accs[key] || { perms: [...DEFAULT_PERMS] }), profileSet: true };
+        await this.ctx.storage.put({ roster, accounts: accs });
+        this.broadcast({ t: "alliance", roster, cargos: await this.getCargos() });
+        ws.send(JSON.stringify({ t: "profile_ok" }));
+        await this.sendUsers();
+        return;
+      }
+
+      case "avatar_set": {
+        const roster = await this.getRoster();
+        const me = roster.find((p) => p.nick.toLowerCase() === String(a.nick).toLowerCase());
+        if (!me) return;
+        const av = String(msg.avatar ?? "");
+        if (av && (av.length > MAX_AVATAR || !AVATAR_RE.test(av))) return ws.send(JSON.stringify({ t: "avatar_error" }));
+        const accs = await this.getAccounts();
+        const key = me.nick.toLowerCase();
+        accs[key] = { ...(accs[key] || { perms: [...DEFAULT_PERMS] }) };
+        if (av) accs[key].avatar = av;
+        else delete accs[key].avatar;
+        await this.ctx.storage.put("accounts", accs);
+        this.broadcast({ t: "avatar", nick: me.nick, avatar: av });
+        return;
+      }
+
+      // troca da própria senha (precisa da atual)
+      case "pw_change": {
+        const send = (o) => ws.send(JSON.stringify(o));
+        if (this.isBlocked(a.ip)) return send({ t: "pwc_error", reason: "bloqueado" });
+        const roster = await this.getRoster();
+        const me = roster.find((p) => p.nick.toLowerCase() === String(a.nick).toLowerCase());
+        const accs = await this.getAccounts();
+        const acc = me && accs[me.nick.toLowerCase()];
+        if (!acc || !acc.hash) return send({ t: "pwc_error", reason: "semsenha" });
+        if (!(await same(await hashPw(msg.old, acc.salt), acc.hash))) {
+          this.registerFail(a.ip);
+          return send({ t: "pwc_error", reason: "atual" });
+        }
+        const np = String(msg.pass ?? "");
+        if (np.length < PW_MIN || np.length > PW_MAX) return send({ t: "pwc_error", reason: "curta" });
+        if (await same(np, this.env.GVG_PASSWORD || DEFAULT_PASSWORD)) return send({ t: "pwc_error", reason: "igual" });
+        const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+        accs[me.nick.toLowerCase()] = { ...acc, salt, hash: await hashPw(np, salt) };
+        await this.ctx.storage.put("accounts", accs);
+        this.fails.delete(a.ip);
+        send({ t: "pwc_ok" });
+        return;
+      }
+
+      // admin define uma senha nova para qualquer membro (as senhas são guardadas só como hash: dá para trocar, não para ver)
+      case "pw_admin_set": {
+        if (!a.admin) return deny();
+        const roster = await this.getRoster();
+        const hit = roster.find((p) => p.nick.toLowerCase() === cleanNick(msg.nick).toLowerCase());
+        const np = String(msg.pass ?? "");
+        if (!hit) return;
+        if (np.length < PW_MIN || np.length > PW_MAX) return ws.send(JSON.stringify({ t: "pwa_error", nick: hit.nick }));
+        const accs = await this.getAccounts();
+        const key = hit.nick.toLowerCase();
+        const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+        accs[key] = { ...(accs[key] || { perms: [...DEFAULT_PERMS] }), salt, hash: await hashPw(np, salt) };
+        await this.ctx.storage.put("accounts", accs);
+        ws.send(JSON.stringify({ t: "pwa_ok", nick: hit.nick }));
+        await this.sendUsers();
+        return;
+      }
+
       // ---------- usuários e permissões (só admin) ----------
       case "users_get": {
         if (!a.admin) return deny();
@@ -634,7 +720,8 @@ export class Room extends DurableObject {
         const accs = await this.getAccounts();
         const key = hit.nick.toLowerCase();
         if (accs[key]) {
-          accs[key] = { perms: accs[key].perms || [...DEFAULT_PERMS] };
+          const { salt, hash, ...rest } = accs[key];
+          accs[key] = { ...rest, perms: rest.perms || [...DEFAULT_PERMS] };
           await this.ctx.storage.put("accounts", accs);
         }
         await this.sendUsers();
