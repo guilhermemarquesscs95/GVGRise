@@ -89,7 +89,8 @@ function openProfile(first){
     <div class="modal-actions">
       <button class="primary-btn" id="profSave" type="button">${first ? 'Salvar' : 'Salvar funções'}</button>
       <button class="ghost-btn" id="profClose" type="button">${first ? 'Pular por agora' : 'Fechar'}</button>
-    </div>`);
+    </div>
+    ${first ? '' : '<div class="prof-logout"><button type="button" class="ghost-btn" id="profLogout">Sair da conta</button></div>'}`);
   const err = (t) => { const e = $('profErr'); e.textContent = t; e.classList.toggle('hidden', !t); };
   $('profRoles').addEventListener('click', (e) => {
     const b = e.target.closest('.rchip'); if(!b) return;
@@ -115,6 +116,7 @@ function openProfile(first){
     send({t: 'profile_set', roles: profRoles});
   });
   $('profClose').addEventListener('click', closeModal);
+  const lo = $('profLogout'); if(lo) lo.addEventListener('click', () => { closeModal(); logout(); });
   if(!first){
     const msg = (t, ok) => { const m = $('pwMsg'); m.textContent = t; m.classList.remove('hidden'); m.style.color = ok ? '#35C48C' : '#FF8A8A'; };
     $('pwGo').addEventListener('click', () => {
