@@ -37,6 +37,8 @@ const RESERVE_SLOTS = 2;
 const ROLE_IDS = ["tank", "melee", "ranged", "bruiser", "support", "reserva"];
 const DEFAULT_CARGOS = ["Líder", "Vice-líder", "Oficial", "Membro"];
 const MAX_BATTLES = 5000;
+const MAX_PVP = 10000;
+const PVP_MODES = { "1v1": 1, "2v2": 2, "3v3": 3 };
 const PERMS = ["cura", "equipes", "alianca", "batalhas"]; // o que um membro pode fazer (o admin faz tudo + gerencia usuários)
 const ALL_PERMS = [...PERMS, "usuarios"];
 const DEFAULT_PERMS = ["cura"];
@@ -197,6 +199,35 @@ function sanitizeBattle(b) {
     enemy,
     note: cleanText(b.note, 200),
   };
+}
+
+// match de PvP (1x1, 2x2 ou 3x3). Não identifica jogadores, só personagens. No ranked pode haver até 4 banimentos (opcional).
+function sanitizePvp(m) {
+  if (!m || typeof m !== "object") return null;
+  const mode = String(m.mode ?? "");
+  const n = PVP_MODES[mode];
+  const date = String(m.date ?? "");
+  const result = m.result === "w" ? "w" : m.result === "l" ? "l" : null;
+  if (!n || !DATE_RE.test(date) || !result) return null;
+  const uniqChars = (arr) => {
+    const out = [];
+    for (const c of Array.isArray(arr) ? arr : []) {
+      const s = String(c ?? "");
+      if (!CHAR_RE.test(s) || out.includes(s)) return null;
+      out.push(s);
+    }
+    return out;
+  };
+  const mine = uniqChars(m.mine);
+  const theirs = uniqChars(m.theirs);
+  if (!mine || !theirs || mine.length !== n || theirs.length !== n) return null;
+  const ranked = !!m.ranked;
+  let bans = [];
+  if (ranked) {
+    bans = uniqChars(m.bans);
+    if (!bans || bans.length > 4) return null;
+  }
+  return { mode, ranked, date, result, mine, theirs, bans, note: cleanText(m.note, 200) };
 }
 
 export class Room extends DurableObject {
@@ -791,6 +822,47 @@ export class Room extends DurableObject {
         await this.ctx.storage.put("b:" + id, rec);
         ws.send(JSON.stringify({ t: "battle_saved", id }));
         this.broadcast({ t: "battles_dirty" });
+        return;
+      }
+
+      // ---------- PvP (qualquer membro lança; edita/apaga só o que lançou, a liderança com "batalhas" e o admin mexem em tudo) ----------
+      case "pvp_get": {
+        const map = await this.ctx.storage.list({ prefix: "p:", limit: MAX_PVP + 10 });
+        const list = [...map.values()].sort((x, y) => (x.date === y.date ? x.ts - y.ts : x.date < y.date ? -1 : 1));
+        ws.send(JSON.stringify({ t: "pvp", list }));
+        return;
+      }
+
+      case "pvp_save": {
+        const clean = sanitizePvp(msg.match);
+        if (!clean) return ws.send(JSON.stringify({ t: "pvp_error" }));
+        const id = String((msg.match && msg.match.id) ?? "");
+        let rec;
+        if (id && /^[a-z0-9]{4,20}$/.test(id)) {
+          const prev = await this.ctx.storage.get("p:" + id);
+          if (!prev) return ws.send(JSON.stringify({ t: "pvp_error" }));
+          if (!(can("batalhas") || String(prev.by).toLowerCase() === String(a.nick).toLowerCase())) return deny();
+          rec = { ...prev, ...clean, id, edited: now };
+        } else {
+          const count = (await this.ctx.storage.list({ prefix: "p:", limit: MAX_PVP + 1 })).size;
+          if (count >= MAX_PVP) return ws.send(JSON.stringify({ t: "pvp_error" }));
+          const nid = now.toString(36) + Math.floor(Math.random() * 1296).toString(36).padStart(2, "0");
+          rec = { ...clean, id: nid, ts: now, by: a.nick };
+        }
+        await this.ctx.storage.put("p:" + rec.id, rec);
+        ws.send(JSON.stringify({ t: "pvp_saved", id: rec.id }));
+        this.broadcast({ t: "pvp_dirty" });
+        return;
+      }
+
+      case "pvp_del": {
+        const id = String(msg.id ?? "");
+        if (!/^[a-z0-9]{4,20}$/.test(id)) return;
+        const prev = await this.ctx.storage.get("p:" + id);
+        if (!prev) return;
+        if (!(can("batalhas") || String(prev.by).toLowerCase() === String(a.nick).toLowerCase())) return deny();
+        await this.ctx.storage.delete("p:" + id);
+        this.broadcast({ t: "pvp_dirty" });
         return;
       }
 

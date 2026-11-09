@@ -14,6 +14,8 @@ const LOW_N = 5;               // abaixo disso o percentual aparece apagado (amo
 
 function onAuthed(){
   battlesLoaded = false;
+  if(typeof resetPvp === 'function') resetPvp();
+  if(currentTab === 'pvp') send({t:'pvp_get'}, true);
   if(currentTab === 'analise') send({t:'get_battles'}, true);
 }
 function enterAnalysis(){

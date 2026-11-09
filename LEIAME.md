@@ -39,3 +39,6 @@ Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: 
 - Em "Meu perfil" cada membro escolhe **uma posição primária** (a que mais domina), as **secundárias** e até **5 personagens preferidos**. Reserva continua sendo etiqueta da liderança.
 - Em Aliança, clicar no nome de alguém abre o perfil dele: primária, secundárias e preferidos. A liderança com permissão de Aliança também pode mudar a primária pela lista ao lado do membro, mas não altera os personagens preferidos de ninguém.
 - A aba **Personagens** mostra a galeria (com busca). Ao clicar: desempenho (geral, com a We Sink e contra a We Sink, calculado das batalhas lançadas), quem da aliança o tem entre os preferidos e um espaço reservado para winrate detalhado, counters e notas.
+
+## Aba PvP (1x1, 2x2, 3x3)
+Qualquer membro lança matches de PvP (modalidade, casual ou ranked, vitória/derrota, seu time e o adversário, só personagens, sem identificar jogadores). No ranked dá para informar até 4 banimentos (opcional). A aba mostra aproveitamento por modalidade, personagens (nossos/rivais/todos), confrontos com vantagem, consulta de counters, duplas e trios, banimentos, histórico com filtros e CSV. Cada um edita/apaga só os seus; admin e quem tem "batalhas" editam todos.
