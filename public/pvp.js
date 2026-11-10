@@ -189,14 +189,17 @@ function pvCombosCard(list){
     ${(sr.length || pr.length) ? tbl(sr, 30, 'Trios repetidos') + tbl(pr, 32, 'Duplas que mais aparecem juntas') : '<div class="empty-box">Ainda não há duplas ou trios repetidos.</div>'}</div>`;
 }
 
+let pvBanSide = 'todos';        // 'meus' | 'rival' | 'todos'
+const bansOf = (m, side) => side === 'meus' ? (m.bans || []) : side === 'rival' ? (m.bansE || []) : [...(m.bans || []), ...(m.bansE || [])];
 function pvBansCard(list){
-  const ranked = list.filter(m => m.ranked && (m.bans || []).length);
+  const ranked = list.filter(m => m.ranked && bansOf(m, pvBanSide).length);
   const map = new Map();
-  ranked.forEach(m => m.bans.forEach(c => { if(!map.has(c)) map.set(c, []); map.get(c).push(m); }));
+  ranked.forEach(m => bansOf(m, pvBanSide).forEach(c => { if(!map.has(c)) map.set(c, []); map.get(c).push(m); }));
   const rows = [...map].map(([id, arr]) => ({id, ...tallyPv(arr), pres: arr.length / ranked.length})).sort((a, b) => b.n - a.n || b.w - a.w).slice(0, 12);
   const trs = rows.map(r => `<tr><td><div class="name">${faceHTML(r.id, 30)}<span>${esc(charName(r.id))}</span></div></td>
     <td class="num">${r.n} <span style="color:var(--dimmer)">(${Math.round(r.pres * 100)}%)</span></td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td></tr>`).join('');
-  return `<div class="an-card"><h3>Banimentos · ranked</h3><p class="sub">Personagens que quem lançou baniu. "%" = quanto vencemos nos matches em que ele foi banido.</p>
+  return `<div class="an-card"><h3>Banimentos · ranked</h3><p class="sub">${{meus: 'Personagens que NÓS banimos.', rival: 'Personagens que o RIVAL baniu.', todos: 'Banimentos dos dois lados.'}[pvBanSide]} "%" = quanto vencemos nos matches em que ele foi banido.</p>
+    <div class="card-tools"><div class="seg"><button data-act="banside" data-v="meus" aria-pressed="${pvBanSide === 'meus'}">Nossos</button><button data-act="banside" data-v="rival" aria-pressed="${pvBanSide === 'rival'}">Do rival</button><button data-act="banside" data-v="todos" aria-pressed="${pvBanSide === 'todos'}">Todos</button></div></div>
     ${rows.length ? `<table class="tbl"><thead><tr><th>Personagem</th><th class="num">Vezes (presença)</th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${trs}</tbody></table>`
       : '<div class="empty-box">Nenhum ranked com banimentos lançado neste filtro. Os banimentos são opcionais.</div>'}</div>`;
 }
@@ -212,7 +215,8 @@ function pvHistoryCard(list){
           <span class="dim">· ${fmtDate(m.date)}</span>
         </div>
         <div>${facesInline(m.mine, 30)}<span class="vs">VS</span>${facesInline(m.theirs, 30)}</div>
-        ${(m.bans || []).length ? `<div class="hist-note">Banimentos: ${facesInline(m.bans, 20)}</div>` : ''}
+        ${(m.bans || []).length ? `<div class="hist-note">Nossos bans: ${facesInline(m.bans, 20)}</div>` : ''}
+        ${(m.bansE || []).length ? `<div class="hist-note">Bans do rival: ${facesInline(m.bansE, 20)}</div>` : ''}
         ${m.note ? `<div class="hist-note">“${esc(m.note)}”</div>` : ''}
       </div>
       ${canEditPvp(m) ? `<div class="hist-tools"><button class="mini-btn" data-act="edit" data-v="${m.id}">Editar</button><button class="mini-btn" data-act="del" data-v="${m.id}">Apagar</button></div>` : ''}
@@ -259,6 +263,7 @@ tabPvp.addEventListener('click', (e) => {
     case 'side': pvSide = v; pvShowAllChars = false; break;
     case 'allchars': pvShowAllChars = !pvShowAllChars; break;
     case 'allhist': pvShowAllHist = !pvShowAllHist; break;
+    case 'banside': pvBanSide = v; break;
     case 'new': openPvpModal(null); return;
     case 'edit': openPvpModal(pvp.find(m => m.id === v)); return;
     case 'del': { const m = pvp.find(x => x.id === v); if(m && confirm(`Apagar o match ${pvModeLabel(m.mode)} de ${fmtDate(m.date)}?`)) send({t: 'pvp_del', id: v}); return; }
@@ -283,9 +288,9 @@ tabPvp.addEventListener('change', (e) => {
 
 function downloadPvpCsv(){
   const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
-  const head = ['data', 'modalidade', 'tipo', 'resultado', 'meu_time', 'adversario', 'banimentos', 'observacao'];
+  const head = ['data', 'modalidade', 'tipo', 'resultado', 'meu_time', 'adversario', 'bans_nossos', 'bans_rival', 'observacao'];
   const rows = pvp.map(m => [m.date, pvModeLabel(m.mode), m.ranked ? 'Ranked' : 'Casual', m.result === 'w' ? 'Vitoria' : 'Derrota',
-    m.mine.map(charName).join(' | '), m.theirs.map(charName).join(' | '), (m.bans || []).map(charName).join(' | '), m.note || ''].map(q).join(';'));
+    m.mine.map(charName).join(' | '), m.theirs.map(charName).join(' | '), (m.bans || []).map(charName).join(' | '), (m.bansE || []).map(charName).join(' | '), m.note || ''].map(q).join(';'));
   download('gvg-pvp.csv', '﻿' + head.join(';') + '\r\n' + rows.join('\r\n'), 'text/csv;charset=utf-8');
 }
 
@@ -297,13 +302,14 @@ let pvKept = {mode: '1v1', ranked: false, date: ''};
 function pvBlank(){
   const n = Number(pvKept.mode[0]);
   return {id: '', mode: pvKept.mode, ranked: pvKept.ranked, date: pvKept.date || todayStr(), result: '',
-    mine: Array(n).fill(''), theirs: Array(n).fill(''), bans: ['', '', '', ''], note: ''};
+    mine: Array(n).fill(''), theirs: Array(n).fill(''), bans: ['', '', '', ''], bansE: ['', '', '', ''], note: ''};
 }
 function pvFrom(m){
   const f = pvBlank();
   f.id = m.id; f.mode = m.mode; f.ranked = !!m.ranked; f.date = m.date; f.result = m.result; f.note = m.note || '';
   f.mine = [...m.mine]; f.theirs = [...m.theirs];
   (m.bans || []).forEach((c, i) => { f.bans[i] = c; });
+  (m.bansE || []).forEach((c, i) => { f.bansE[i] = c; });
   return f;
 }
 function pvSetMode(mode){
@@ -342,8 +348,11 @@ function renderPvpForm(){
     <div class="sec-head"><span>Time adversário</span><span class="filters"><button type="button" class="mini-btn" data-seq="theirs">&#9654; Preencher seguidos</button></span></div>
     ${cells('theirs', 'Rival')}
     <p class="small-dim" style="margin-top:8px">Espelhado (mesmos personagens dos dois lados) fica no histórico, mas não conta nas taxas de vitória.</p>
-    ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional, até 4)</span></span><span class="filters"><button type="button" class="mini-btn" data-seq="bans">&#9654; Preencher seguidos</button></span></div>
-      <div class="face-row">${f.bans.map((id, i) => `<div class="face-cell">${pvFaceBtn('bans', i, id)}<span>Ban ${i + 1}</span></div>`).join('')}</div>` : ''}
+    ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional · no máximo 4 no total, somando os seus e os do rival)</span></span></div>
+      <div class="sec-head" style="margin-top:4px"><span class="small-dim">Nossos bans</span><span class="filters"><button type="button" class="mini-btn" data-seq="bans">&#9654; Preencher seguidos</button></span></div>
+      <div class="face-row">${f.bans.map((id, i) => `<div class="face-cell">${pvFaceBtn('bans', i, id)}<span>Ban ${i + 1}</span></div>`).join('')}</div>
+      <div class="sec-head" style="margin-top:4px"><span class="small-dim">Bans do rival</span><span class="filters"><button type="button" class="mini-btn" data-seq="bansE">&#9654; Preencher seguidos</button></span></div>
+      <div class="face-row">${f.bansE.map((id, i) => `<div class="face-cell">${pvFaceBtn('bansE', i, id)}<span>Ban ${i + 1}</span></div>`).join('')}</div>` : ''}
     <label class="f" for="pvNote" style="margin-top:12px">Observação (opcional)</label>
     <input class="nick-input" id="pvNote" type="text" maxlength="200" value="${esc(f.note)}" placeholder="ex.: perdi por causa do primeiro golpe">
     <p class="form-err hidden" id="pvErr"></p>
@@ -377,12 +386,13 @@ function renderPvpForm(){
   });
 }
 function pvPick(kind, i, single){
-  const tag = {mine: 'Meu time', theirs: 'Rival', bans: 'Ban'}[kind];
+  const tag = {mine: 'Meu time', theirs: 'Rival', bans: 'Nosso ban', bansE: 'Ban do rival'}[kind];
   runPicker({doc: document, count: pvForm[kind].length, start: i, single,
     label: n => `${tag} · ${n + 1}`,
     get: n => pvForm[kind][n],
     set: (n, id) => {
       if(id) pvForm[kind].forEach((x, k) => { if(k !== n && x === id){ pvForm[kind][k] = ''; pvUpd(kind, k); } });   // sem repetir no mesmo lado
+      if(id && (kind === 'bans' || kind === 'bansE')){ const o = kind === 'bans' ? 'bansE' : 'bans'; pvForm[o].forEach((x, k) => { if(x === id){ pvForm[o][k] = ''; pvUpd(o, k); } }); }   // nem nos dois lados
       pvForm[kind][n] = id; pvUpd(kind, n);
     }});
 }
@@ -393,8 +403,9 @@ function pvSave(next){
   if(!f.result) return pvErr('Marque Vitória ou Derrota.');
   if(f.mine.some(x => !x)) return pvErr('Escolha todos os personagens do seu time.');
   if(f.theirs.some(x => !x)) return pvErr('Escolha todos os personagens do time adversário.');
+  if(f.ranked && f.bans.filter(Boolean).length + f.bansE.filter(Boolean).length > 4) return pvErr('No total são no máximo 4 banimentos (os seus mais os do rival).');
   const match = {id: f.id || undefined, mode: f.mode, ranked: f.ranked, date: f.date, result: f.result, mine: f.mine, theirs: f.theirs,
-    bans: f.ranked ? f.bans.filter(Boolean) : [], note: f.note.trim()};
+    bans: f.ranked ? f.bans.filter(Boolean) : [], bansE: f.ranked ? f.bansE.filter(Boolean) : [], note: f.note.trim()};
   pvSavingNext = next;
   if(!send({t: 'pvp_save', match})) return;
   $('pvSave').disabled = true;
