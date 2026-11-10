@@ -348,7 +348,7 @@ function renderPvpForm(){
     <div class="sec-head"><span>Time adversário</span><span class="filters"><button type="button" class="mini-btn" data-seq="theirs">&#9654; Preencher seguidos</button></span></div>
     ${cells('theirs', 'Rival')}
     <p class="small-dim" style="margin-top:8px">Espelhado (mesmos personagens dos dois lados) fica no histórico, mas não conta nas taxas de vitória.</p>
-    ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional · no máximo 4 no total, somando os seus e os do rival)</span></span></div>
+    ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional · de 0 a 4 no total, sem mínimo: pode lançar só 1, 2 ou nenhum)</span></span></div>
       <div class="sec-head" style="margin-top:4px"><span class="small-dim">Nossos bans</span><span class="filters"><button type="button" class="mini-btn" data-seq="bans">&#9654; Preencher seguidos</button></span></div>
       <div class="face-row">${f.bans.map((id, i) => `<div class="face-cell">${pvFaceBtn('bans', i, id)}<span>Ban ${i + 1}</span></div>`).join('')}</div>
       <div class="sec-head" style="margin-top:4px"><span class="small-dim">Bans do rival</span><span class="filters"><button type="button" class="mini-btn" data-seq="bansE">&#9654; Preencher seguidos</button></span></div>
