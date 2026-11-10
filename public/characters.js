@@ -1,5 +1,6 @@
 /* ================= Aba Personagens: galeria, desempenho e quem joga com cada um ================= */
 let chSearch = '';
+let chMember = '';      // filtro por membro da aliança ('' = todos)
 
 function charFans(){
   const m = new Map();
@@ -19,6 +20,26 @@ function charTilesHTML(){
   }).join('')}</div>`;
 }
 
+// personagens que um membro joga: os usados nos GVGs (com taxa de vitória) + os preferidos ainda sem registro
+function memberTableHTML(){
+  const p = roster.find(x => x.nick.toLowerCase() === chMember.toLowerCase());
+  if(!p) return charTilesHTML();
+  if(!battlesLoaded) return '<div class="small-dim">Carregando batalhas…</div>';
+  const q = normText(chSearch).trim();
+  const stats = memberCharStats(p.nick), favs = p.favs || [];
+  const ids = [...new Set([...stats.keys(), ...favs])].filter(id => !q || q.split(/\s+/).every(w => normText(charName(id)).includes(w)));
+  const rows = ids.map(id => ({id, ...(stats.get(id) || {n: 0, w: 0, l: 0})})).sort((a, b) => b.n - a.n || (favs.includes(b.id) - favs.includes(a.id)) || charName(a.id).localeCompare(charName(b.id), 'pt-BR'));
+  const tot = [...stats.values()].reduce((t, e) => ({n: t.n + e.n, w: t.w + e.w, l: t.l + e.l}), {n: 0, w: 0, l: 0});
+  const trs = rows.map(r => `<tr class="clickable" data-id="${r.id}">
+      <td><div class="name">${faceHTML(r.id, 32)}<span>${esc(charName(r.id))}</span>${favs.includes(r.id) ? '<i class="ch-star" title="Personagem preferido">&#9733;</i>' : ''}</div></td>
+      ${r.n ? `<td class="num">${r.n}</td><td>${wlBar(r.w, r.l)}</td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td>` : '<td class="num" colspan="4"><span class="small-dim">sem GVG lançado</span></td>'}</tr>`).join('');
+  return `<div class="an-card full"><h3>Personagens de ${esc(p.nick)}</h3>
+    <p class="sub">${tot.n ? `${tot.n} uso${tot.n > 1 ? 's' : ''} nos GVGs lançados · ${tot.w}-${tot.l} · ${Math.round(tot.w / tot.n * 100)}% de vitórias.` : 'Ainda não há GVG lançado com o nick dele.'} Só contam batalhas da We Sink em que o nick foi informado. A estrela marca os preferidos.</p>
+    ${rows.length ? `<table class="tbl"><thead><tr><th>Personagem</th><th class="num">Usos</th><th></th><th class="num">V-D</th><th class="num">%</th></tr></thead><tbody>${trs}</tbody></table><p class="note-low">Percentual apagado = menos de ${LOW_N} usos (amostra pequena).</p>`
+      : '<div class="empty-box">Nenhum personagem para mostrar.</div>'}</div>`;
+}
+const chListHTML = () => chMember ? memberTableHTML() : charTilesHTML();
+
 function enterCharacters(){
   if(!battlesLoaded) send({t: 'get_battles'}, true);
   renderCharacters();
@@ -31,8 +52,11 @@ function renderCharacters(){
       <div class="small-dim" style="color:var(--text);margin-bottom:4px"><b>${CHARS.length}</b> personagens</div>
       <div class="small-dim">Clique num personagem para ver o desempenho dele nas batalhas lançadas e quem da aliança joga com ele. Aqui também vão entrar winrate, counters e notas de cada personagem. A estrela mostra quantos membros o colocaram entre os preferidos.</div>
     </div>
-    <input class="nick-input" id="chSearch" type="search" placeholder="Buscar personagem…" value="${esc(chSearch)}" style="max-width:280px;padding:8px 10px;margin-bottom:12px" autocomplete="off">
-    <div id="chList">${charTilesHTML()}</div>
+    <div class="filters" style="margin-bottom:12px">
+      <input class="nick-input" id="chSearch" type="search" placeholder="Buscar personagem…" value="${esc(chSearch)}" style="max-width:280px;padding:8px 10px" autocomplete="off">
+      <select id="chMember" class="${chMember ? 'active' : ''}"><option value="">Todos os membros</option>${[...roster].sort(byNick).map(p => `<option value="${esc(p.nick)}"${p.nick === chMember ? ' selected' : ''}>${esc(p.nick)}</option>`).join('')}</select>
+    </div>
+    <div id="chList">${chListHTML()}</div>
   </div>`;
   if(focus){ const el = $('chSearch'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 }
@@ -70,9 +94,14 @@ function openCharacter(id){
 tabPersonagens.addEventListener('input', (e) => {
   if(e.target.id !== 'chSearch') return;
   chSearch = e.target.value;
-  const el = $('chList'); if(el) el.innerHTML = charTilesHTML();
+  const el = $('chList'); if(el) el.innerHTML = chListHTML();
+});
+tabPersonagens.addEventListener('change', (e) => {
+  if(e.target.id !== 'chMember') return;
+  chMember = e.target.value;
+  renderCharacters();
 });
 tabPersonagens.addEventListener('click', (e) => {
-  const t = e.target.closest('.ch-tile');
+  const t = e.target.closest('.ch-tile') || e.target.closest('tr[data-id]');
   if(t) openCharacter(t.dataset.id);
 });

@@ -32,7 +32,8 @@ const ENEMY_SLOTS = [
   {id:"p4",   label:"4",    color:"#EAF1F7"}
 ];
 
-const CYCLE = 60;
+const CYCLE = 60;             // renascimento dos pontos de cura
+const ENEMY_CYCLE = 30;       // tempo que um inimigo fica morto
 const RADIUS = 38;
 const CIRC = 2 * Math.PI * RADIUS;
 const LS_PREFS = "gvg_local_prefs";
@@ -862,7 +863,7 @@ function markEnemyDead(slotId){
   if(!myTeam) return;
   const enemies = state.enemies[myTeam] || (state.enemies[myTeam] = emptyEnemySlots());
   const start = enemies[slotId];
-  if(start && (serverNow() - start) / 1000 < CYCLE) return;     // travado até completar 60s
+  if(start && (serverNow() - start) / 1000 < ENEMY_CYCLE) return;     // travado até completar 30s
   if(!send({t:'enemy', team:myTeam, slot:slotId})) return;
   enemies[slotId] = serverNow();
   renderEnemies();
@@ -950,8 +951,8 @@ function renderEnemies(){
       const has = !!c && CHAR_IDX[c] !== undefined;
       const start = enemies[s.id];
       const elapsed = start ? (now - start) / 1000 : null;
-      const dead = elapsed !== null && elapsed < CYCLE;
-      const remaining = dead ? Math.max(0, Math.ceil(CYCLE - elapsed)) : '';
+      const dead = elapsed !== null && elapsed < ENEMY_CYCLE;
+      const remaining = dead ? Math.max(0, Math.ceil(ENEMY_CYCLE - elapsed)) : '';
 
       if(has && dot.dataset.c !== c) setFace(dot.querySelector('.face'), c);
       dot.dataset.c = has ? c : '';

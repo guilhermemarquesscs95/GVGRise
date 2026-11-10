@@ -2,7 +2,7 @@
 
 let battles = [];
 let battlesLoaded = false;
-const flt = {period: 'all', map: '', alliance: ''};
+const flt = {period: 'all', map: '', alliance: '', player: ''};   // player: 'w:nick' (nosso) ou 'e:nick' (adversário)
 let charSide = 'rivais';       // 'rivais' | 'nossos' | 'todos'
 let charSort = 'uso';          // 'uso' | 'melhor' | 'pior'
 let showAllChars = false;
@@ -22,9 +22,25 @@ function enterAnalysis(){
   if(!battlesLoaded) send({t:'get_battles'}, true);
   renderAnalysis();
 }
+// desempenho de um membro por personagem nas batalhas de GVG (só as batalhas We Sink em que o nick dele foi lançado)
+function memberCharStats(nick){
+  const n = String(nick).toLowerCase(), m = new Map();
+  battles.filter(isWe).forEach(b => {
+    const seen = new Set();
+    (b.our || []).forEach(s => {
+      if(!s.p || !s.c || s.p.toLowerCase() !== n || seen.has(s.c)) return;
+      seen.add(s.c);
+      const e = m.get(s.c) || {n: 0, w: 0, l: 0};
+      e.n++; if(b.result === 'w') e.w++; else e.l++;
+      m.set(s.c, e);
+    });
+  });
+  return m;
+}
 function onBattles(list){
   battles = list;
   battlesLoaded = true;
+  if(typeof profViewNick !== 'undefined' && profViewNick && $('pvClose')) openMemberProfile(profViewNick);
   if(currentTab === 'analise') renderAnalysis();
   if(currentTab === 'personagens') renderCharacters();
 }
@@ -77,7 +93,28 @@ function filteredBattles(){
   }
   if(flt.map) list = list.filter(b => b.map === flt.map);
   if(flt.alliance) list = list.filter(b => b.alliance === flt.alliance || b.alliance2 === flt.alliance);
+  if(flt.player) list = list.filter(b => isWe(b) && playerChars(b, flt.player) !== null);
   return list;
+}
+
+/* Jogador no filtro: 'w:nick' = membro da We Sink, 'e:nick' = adversário. Devolve os personagens que ele usou na batalha (ou null se não jogou). */
+function playerChars(b, key){
+  if(!key) return null;
+  const side = key[0], nick = key.slice(2).toLowerCase();
+  if(side === 'w'){
+    const hit = (b.our || []).filter(s => s.p && s.p.toLowerCase() === nick);
+    return hit.length ? hit.map(s => s.c).filter(Boolean) : null;
+  }
+  const ps = b.enemyP || [], out = [];
+  let found = false;
+  ps.forEach((p, i) => { if(p && p.toLowerCase() === nick){ found = true; if(b.enemy[i]) out.push(b.enemy[i]); } });
+  return found ? out : null;
+}
+// nicks conhecidos (um por pessoa, ignorando maiúsculas)
+function knownNicks(pick){
+  const m = new Map();
+  battles.filter(isWe).forEach(b => pick(b).forEach(n => { if(n && !m.has(n.toLowerCase())) m.set(n.toLowerCase(), n); }));
+  return [...m.values()].sort((a, b) => a.localeCompare(b, 'pt-BR', {sensitivity: 'base'}));
 }
 
 /* Batalhas "We Sink x aliança" e batalhas "outra aliança x outra aliança" (kind 'third').
@@ -131,17 +168,20 @@ function alliancesCard(list){
 }
 
 // cada "entrada" = uma composição numa batalha: {chars, w}. w = conta como vitória no percentual do quadro
-function entriesFor(list, side){
+// pl (opcional) = filtro de jogador: com ele, o lado do jogador conta só os personagens dele
+function entriesFor(list, side, pl){
   if(side === 'todos') return list.flatMap(b => sidesOf(b).map(x => ({chars: x.chars, w: x.won})));
   const we = list.filter(isWe);
+  const mine = (b) => pl && pl[0] === 'w' ? uniq(playerChars(b, pl) || []) : uniq((b.our || []).map(s => s.c));
+  const theirs = (b) => pl && pl[0] === 'e' ? uniq(playerChars(b, pl) || []) : uniq(b.enemy || []);
   return side === 'nossos'
-    ? we.map(b => ({chars: uniq((b.our || []).map(s => s.c)), w: b.result === 'w'}))
-    : we.map(b => ({chars: uniq(b.enemy || []), w: b.result === 'w'}));
+    ? we.map(b => ({chars: mine(b), w: b.result === 'w'}))
+    : we.map(b => ({chars: theirs(b), w: b.result === 'w'}));
 }
 const tallyE = (arr) => { const w = arr.filter(e => e.w).length; return {n: arr.length, w, l: arr.length - w}; };
 
 function charsCard(list){
-  const withData = entriesFor(list, charSide).filter(e => e.chars.length);
+  const withData = entriesFor(list, charSide, flt.player).filter(e => e.chars.length);
   const map = new Map();
   withData.forEach(e => e.chars.forEach(c => { if(!map.has(c)) map.set(c, []); map.get(c).push(e); }));
   let rows = [...map].map(([id, arr]) => ({id, ...tallyE(arr), pres: arr.length / withData.length}));
@@ -182,7 +222,7 @@ function charsCard(list){
 }
 
 function combosCard(list){
-  const withData = entriesFor(list, charSide).filter(e => e.chars.length >= 2);
+  const withData = entriesFor(list, charSide, flt.player).filter(e => e.chars.length >= 2);
   const pairs = new Map(), sets = new Map();
   withData.forEach(e => {
     const ids = [...e.chars].sort();
@@ -268,13 +308,37 @@ function playersCard(list){
     });
   });
   const rows = [...per].map(([nick, e]) => ({nick, ...tally(e.battles), top: [...e.chars].sort((a, b) => b[1] - a[1]).slice(0, 3)})).sort((a, b) => b.n - a.n || a.nick.localeCompare(b.nick));
-  const trs = rows.map(r => `<tr>
+  const trs = rows.map(r => `<tr class="clickable${flt.player === 'w:' + r.nick ? ' sel' : ''}" data-act="fplayer" data-v="w:${esc(r.nick)}">
       <td><div class="name"><span>${esc(r.nick)}</span>${roleBadges(r.nick)}</div></td>
       <td class="num">${r.n}</td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td>
       <td>${facesInline(r.top.map(t => t[0]), 26)}</td></tr>`).join('');
-  return `<div class="an-card"><h3>Jogadores</h3><p class="sub">Presença e resultado de cada um, com os 3 personagens que mais usou.</p>
+  return `<div class="an-card"><h3>Jogadores</h3><p class="sub">Presença e resultado de cada um, com os 3 personagens que mais usou. Clique num nick para filtrar a análise por ele.</p>
     ${rows.length ? `<table class="tbl"><thead><tr><th>Nick</th><th class="num">Jogos</th><th class="num">V-D</th><th class="num">%</th><th>Mais usa</th></tr></thead><tbody>${trs}</tbody></table>`
       : '<div class="empty-box">Informe os jogadores nas batalhas para ver as estatísticas individuais.</div>'}</div>`;
+}
+
+function rivalsCard(list){
+  const per = new Map();
+  list.filter(isWe).forEach(b => {
+    const seen = new Set();
+    (b.enemyP || []).forEach((p, i) => {
+      if(!p) return;
+      const k = p.toLowerCase();
+      if(!per.has(k)) per.set(k, {nick: p, ally: new Set(), battles: [], chars: new Map()});
+      const e = per.get(k);
+      e.ally.add(b.alliance);
+      if(!seen.has(k)){ e.battles.push(b); seen.add(k); }
+      if(b.enemy[i]) e.chars.set(b.enemy[i], (e.chars.get(b.enemy[i]) || 0) + 1);
+    });
+  });
+  const rows = [...per.values()].map(e => ({nick: e.nick, ally: [...e.ally].join(', '), ...tally(e.battles), top: [...e.chars].sort((a, b) => b[1] - a[1]).slice(0, 3)})).sort((a, b) => b.n - a.n || a.nick.localeCompare(b.nick));
+  const trs = rows.slice(0, 25).map(r => `<tr class="clickable${flt.player === 'e:' + r.nick ? ' sel' : ''}" data-act="fplayer" data-v="e:${esc(r.nick)}">
+      <td><div class="name"><span>${esc(r.nick)}</span><small style="color:var(--dimmer)">${esc(r.ally)}</small></div></td>
+      <td class="num">${r.n}</td><td class="num">${r.w}-${r.l}</td><td class="num">${pctCell(r.w, r.n)}</td>
+      <td>${facesInline(r.top.map(t => t[0]), 26)}</td></tr>`).join('');
+  return `<div class="an-card"><h3>Jogadores adversários</h3><p class="sub">Nicks lançados nas composições dos rivais. "%" = quanto NÓS vencemos nas batalhas em que ele jogou. Clique para filtrar.</p>
+    ${rows.length ? `<table class="tbl"><thead><tr><th>Nick</th><th class="num">Jogos</th><th class="num">V-D</th><th class="num">%</th><th>Mais usa</th></tr></thead><tbody>${trs}</tbody></table>`
+      : '<div class="empty-box">Ao lançar uma batalha, informe o nick de cada rival (opcional) para acompanhar os adversários.</div>'}</div>`;
 }
 
 function historyCard(list){
@@ -297,6 +361,7 @@ function historyCard(list){
         </div>
         <div>${our.length ? facesInline(our, 30) : '<span class="small-dim">' + (isWe(b) ? 'nossa comp. não informada' : 'comp. não informada') + '</span>'}<span class="vs">VS</span>${enemy.length ? facesInline(enemy, 30) : '<span class="small-dim">' + (isWe(b) ? 'rivais não informados' : 'comp. não informada') + '</span>'}</div>
         ${(b.our || []).some(s => s.p) ? `<div class="hist-note">${(b.our || []).filter(s => s.p).map(s => esc(s.p)).join(', ')}</div>` : ''}
+        ${(b.enemyP || []).some(Boolean) ? `<div class="hist-note">Rivais: ${b.enemyP.filter(Boolean).map(esc).join(', ')}</div>` : ''}
         ${b.note ? `<div class="hist-note">“${esc(b.note)}”</div>` : ''}
       </div>
       ${can('batalhas') ? `<div class="hist-tools"><button class="mini-btn" data-act="edit" data-v="${b.id}">Editar</button><button class="mini-btn" data-act="del" data-v="${b.id}">Apagar</button></div>` : ''}
@@ -315,13 +380,16 @@ function renderAnalysis(){
   if(flt.alliance && !alliances.includes(flt.alliance)) flt.alliance = '';
   const list = filteredBattles();
   const sel = (id, v, label) => `<option value="${esc(v)}"${String(flt[id]) === String(v) ? ' selected' : ''}>${esc(label)}</option>`;
-  const hasFilter = flt.period !== 'all' || flt.map || flt.alliance;
+  const ours = knownNicks(b => (b.our || []).map(s => s.p)), theirs = knownNicks(b => b.enemyP || []);
+  if(flt.player && ![...ours.map(n => 'w:' + n), ...theirs.map(n => 'e:' + n)].includes(flt.player)) flt.player = '';
+  const hasFilter = flt.period !== 'all' || flt.map || flt.alliance || flt.player;
 
   let html = `<div class="an-top">
     <div class="filters">
       <select data-act="fperiod" class="${flt.period !== 'all' ? 'active' : ''}">${sel('period', 'all', 'Todo o período')}${sel('period', '30', 'Últimos 30 dias')}${sel('period', '90', 'Últimos 90 dias')}</select>
       <select data-act="fmapsel" class="${flt.map ? 'active' : ''}">${sel('map', '', 'Todos os mapas')}${maps.map(m => sel('map', m, mapName(m))).join('')}</select>
       <select data-act="fallsel" class="${flt.alliance ? 'active' : ''}">${sel('alliance', '', 'Todas as alianças')}${alliances.map(a => sel('alliance', a, a)).join('')}</select>
+      ${(ours.length || theirs.length) ? `<select data-act="fplayersel" class="${flt.player ? 'active' : ''}"><option value="">Todos os jogadores</option>${ours.length ? `<optgroup label="We Sink">${ours.map(n => `<option value="w:${esc(n)}"${flt.player === 'w:' + n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>` : ''}${theirs.length ? `<optgroup label="Adversários">${theirs.map(n => `<option value="e:${esc(n)}"${flt.player === 'e:' + n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>` : ''}</select>` : ''}
       ${hasFilter ? '<button class="mini-btn" data-act="clearf">Limpar filtros</button>' : ''}
     </div>
     <div class="filters">
@@ -344,7 +412,7 @@ function renderAnalysis(){
     if(!we.length && charSide !== 'todos') charSide = 'todos';
     if(we.length) html += kpiHTML(tally(we));
     if(others) html += `<p class="small-dim" style="margin:${we.length ? '-6px' : '0'} 0 12px">${others} batalha${others > 1 ? 's' : ''} entre outras alianças ${others > 1 ? 'entram' : 'entra'} só nos quadros "Personagens · Todos", "Alianças · visão geral", "O que as outras alianças usam" e no histórico. Os números da We Sink acima não mudam.</p>`;
-    html += `<div class="an-grid">${we.length ? mapsCard(we) + alliancesCard(we) : ''}${charsCard(list)}${combosCard(list)}${we.length ? playersCard(we) : ''}${allianceProfilesCard(list)}${radarCard(list)}${historyCard(list)}</div>`;
+    html += `<div class="an-grid">${we.length ? mapsCard(we) + alliancesCard(we) : ''}${charsCard(list)}${combosCard(list)}${we.length ? playersCard(we) + rivalsCard(we) : ''}${allianceProfilesCard(list)}${radarCard(list)}${historyCard(list)}</div>`;
   }
   tabAnalise.innerHTML = html;
 }
@@ -356,7 +424,8 @@ tabAnalise.addEventListener('click', (e) => {
   switch(el.dataset.act){
     case 'fmap': flt.map = flt.map === v ? '' : v; break;
     case 'falliance': flt.alliance = flt.alliance === v ? '' : v; break;
-    case 'clearf': flt.period = 'all'; flt.map = ''; flt.alliance = ''; break;
+    case 'fplayer': flt.player = flt.player === v ? '' : v; break;
+    case 'clearf': flt.period = 'all'; flt.map = ''; flt.alliance = ''; flt.player = ''; break;
     case 'side': charSide = v; showAllChars = false; break;
     case 'allchars': showAllChars = !showAllChars; break;
     case 'allhist': showAllHist = !showAllHist; break;
@@ -381,6 +450,7 @@ tabAnalise.addEventListener('change', (e) => {
     case 'fperiod': flt.period = el.value; break;
     case 'fmapsel': flt.map = el.value; break;
     case 'fallsel': flt.alliance = el.value; break;
+    case 'fplayersel': flt.player = el.value; break;
     case 'sort': charSort = el.value; showAllChars = false; break;
   }
   renderAnalysis();
@@ -405,7 +475,7 @@ function downloadCSV(){
     isWe(b) ? (b.result === 'w' ? WE_NAME : b.alliance) : (b.result === 'w' ? b.alliance : b.alliance2),
     b.team ? 'Equipe ' + b.team : '', b.result === 'w' ? 'Vitoria' : 'Derrota',
     (b.our || []).map(s => (s.p ? s.p + ': ' : '') + (s.c ? charName(s.c) : '?')).join(' | '),
-    (b.enemy || []).map(charName).join(' | '), b.note || ''
+    (b.enemy || []).map((c, i) => ((b.enemyP || [])[i] ? b.enemyP[i] + ': ' : '') + charName(c)).join(' | '), b.note || ''
   ].map(q).join(';'));
   download('gvg-batalhas.csv', '﻿' + head.join(';') + '\r\n' + rows.join('\r\n'), 'text/csv;charset=utf-8');
 }
@@ -422,13 +492,13 @@ const SLOT_TAGS = ['Tank', 'Sup', '1', '2', '3', '4'];
 
 function blankForm(){
   return {id: '', kind: lastKept.kind || 'we', alliance2: lastKept.alliance2 || '', date: lastKept.date || todayStr(), map: '', alliance: lastKept.alliance || '', team: '', result: '',
-    our: SLOT_TAGS.map(() => ({p: '', c: ''})), enemy: SLOT_TAGS.map(() => ''), note: ''};
+    our: SLOT_TAGS.map(() => ({p: '', c: ''})), enemy: SLOT_TAGS.map(() => ''), enemyP: SLOT_TAGS.map(() => ''), note: ''};
 }
 function formFrom(b){
   const f = blankForm();
   f.id = b.id; f.kind = b.kind === 'third' ? 'third' : 'we'; f.alliance2 = b.alliance2 || ''; f.date = b.date; f.map = b.map; f.alliance = b.alliance; f.team = b.team || ''; f.result = b.result; f.note = b.note || '';
   (b.our || []).slice(0, 6).forEach((s, i) => { f.our[i] = {p: s.p || '', c: s.c || ''}; });
-  (b.enemy || []).slice(0, 6).forEach((c, i) => { f.enemy[i] = c; });
+  (b.enemy || []).slice(0, 6).forEach((c, i) => { f.enemy[i] = c; f.enemyP[i] = (b.enemyP || [])[i] || ''; });
   return f;
 }
 
@@ -498,9 +568,13 @@ function renderBattleForm(){
         <input class="nick-input" id="fp-${i}" type="text" list="dlPlayers" maxlength="20" placeholder="jogador" value="${esc(form.our[i].p)}">
         ${faceBtnHTML('our', i, form.our[i].c)}</div>`).join('')}</div>
 
-    <div class="sec-head"><span>Composição do rival</span>
+    <div class="sec-head"><span>Composição do rival <span class="small-dim">(nick opcional)</span></span>
       <span class="filters"><button type="button" class="mini-btn" id="fImport">Importar do marcador</button><button type="button" class="mini-btn" id="fSeqEn">&#9654; Preencher seguidos</button></span></div>
-    ${faceCells('en', i => form.enemy[i])}
+    <datalist id="dlRivals">${knownNicks(b => b.enemyP || []).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="slot-rows">${SLOT_TAGS.map((t, i) => `
+      <div class="slot-row"><span class="tag">${t}</span>
+        <input class="nick-input" id="fe-${i}" type="text" list="dlRivals" maxlength="20" placeholder="nick do rival" value="${esc(form.enemyP[i])}">
+        ${faceBtnHTML('en', i, form.enemy[i])}</div>`).join('')}</div>
     `}
 
     <label class="f" for="fNote">Observação (opcional)</label>
@@ -520,6 +594,7 @@ function renderBattleForm(){
     else if(t.id === 'fAlliance2'){ form.alliance2 = t.value; const r = $('rbB'); if(r) r.textContent = (form.alliance2.trim() || 'Aliança B') + ' venceu'; }
     else if(t.id === 'fNote') form.note = t.value;
     else if(t.id && t.id.startsWith('fp-')) form.our[Number(t.id.slice(3))].p = t.value;
+    else if(t.id && t.id.startsWith('fe-')) form.enemyP[Number(t.id.slice(3))] = t.value;
   });
   box.addEventListener('change', (e) => {
     if(e.target.id === 'fMap') form.map = e.target.value;
@@ -596,11 +671,13 @@ function saveForm(next){
     if(f.alliance.trim().toLowerCase() === f.alliance2.trim().toLowerCase()) return formErr('As duas alianças precisam ser diferentes.');
   }
   if(!f.result) return formErr(third ? 'Marque quem venceu.' : 'Marque Vitória ou Derrota.');
+  if(!third){ const i = f.enemy.findIndex((c, k) => !c && f.enemyP[k].trim()); if(i >= 0) return formErr(`Escolha o personagem do rival "${f.enemyP[i].trim()}" (slot ${SLOT_TAGS[i]}).`); }
   const battle = {
     id: f.id || undefined, date: f.date, map: f.map, alliance: f.alliance.trim(), team: third ? '' : f.team, result: f.result,
     our: third ? f.our.filter(s => s.c).map(s => ({p: '', c: s.c})) : f.our.filter(s => s.p.trim() || s.c).map(s => ({p: s.p.trim(), c: s.c})),
     enemy: f.enemy.filter(Boolean), note: f.note.trim()
   };
+  if(!third){ const idx = f.enemy.map((c, i) => c ? i : -1).filter(i => i >= 0); battle.enemyP = idx.map(i => f.enemyP[i].trim()); }
   if(third){ battle.kind = 'third'; battle.alliance2 = f.alliance2.trim(); }
   formSavingNext = next;
   if(!send({t: 'battle_save', battle})) return;

@@ -24,6 +24,9 @@ function onPvpDirty(){ send({t: 'pvp_get'}, true); }
 
 const canEditPvp = (m) => isAdmin || can('batalhas') || (m.by && nickname && String(m.by).toLowerCase() === nickname.toLowerCase());
 const pvN = (m) => Number(m.mode[0]);
+// Espelhado: os dois lados com os mesmos personagens. Nesse caso vale a habilidade do jogador, não o personagem,
+// então o match fica no histórico mas NÃO entra nas taxas de vitória/derrota nem nos confrontos.
+const isMirror = (m) => m.mine.length === m.theirs.length && m.mine.every(c => m.theirs.includes(c));
 
 function filteredPvp(){
   let list = pvp;
@@ -38,9 +41,11 @@ function filteredPvp(){
 const tallyPv = (list) => { const w = list.filter(m => m.result === 'w').length; return {n: list.length, w, l: list.length - w}; };
 
 // "entrada" = um time num match; w = conta como vitória no percentual do quadro
+// (personagem que aparece nos dois lados do mesmo match, em 2x2/3x3, também não conta: é espelho dele)
 function entriesPv(list, side){
-  if(side === 'todos') return list.flatMap(m => [{chars: m.mine, w: m.result === 'w'}, {chars: m.theirs, w: m.result === 'l'}]);
-  return list.map(m => ({chars: side === 'nossos' ? m.mine : m.theirs, w: m.result === 'w'}));
+  const mi = (m) => m.mine.filter(c => !m.theirs.includes(c)), th = (m) => m.theirs.filter(c => !m.mine.includes(c));
+  if(side === 'todos') return list.flatMap(m => [{chars: mi(m), w: m.result === 'w'}, {chars: th(m), w: m.result === 'l'}]);
+  return list.map(m => ({chars: side === 'nossos' ? mi(m) : th(m), w: m.result === 'w'}));
 }
 
 /* ---------- confrontos (quem ganha de quem) ---------- */
@@ -52,20 +57,20 @@ function matchups(list){
     e.n++; if(won) e.w++;
     map.set(k, e);
   };
-  list.forEach(m => m.mine.forEach(a => m.theirs.forEach(b => { add(a, b, m.result === 'w'); add(b, a, m.result === 'l'); })));
+  list.forEach(m => m.mine.forEach(a => m.theirs.forEach(b => { if(a === b) return; add(a, b, m.result === 'w'); add(b, a, m.result === 'l'); })));
   return [...map.values()];
 }
 const laplace = (e) => (e.w + 1) / (e.n + 2);
 
 /* ---------- blocos ---------- */
-function pvKpis(list){
+function pvKpis(list, mirrors){
   const t = tallyPv(list);
   return `<div class="kpis">
     <div class="kpi"><div class="v">${t.n}</div><div class="k">Matches</div></div>
     <div class="kpi"><div class="v win">${t.w}</div><div class="k">Vitórias</div></div>
     <div class="kpi"><div class="v loss">${t.l}</div><div class="k">Derrotas</div></div>
     <div class="kpi"><div class="v">${pctOf(t.w, t.n)}%</div><div class="k">Aproveitamento</div></div>
-  </div>`;
+  </div>${mirrors ? `<p class="small-dim" style="margin:-6px 0 12px">${mirrors} match${mirrors > 1 ? 'es' : ''} espelhado${mirrors > 1 ? 's' : ''} (mesmos personagens dos dois lados) ${mirrors > 1 ? 'ficam' : 'fica'} só no histórico e não entra${mirrors > 1 ? 'm' : ''} nas taxas, porque ali vale a habilidade do jogador.</p>` : ''}`;
 }
 
 function pvModesCard(list){
@@ -203,7 +208,7 @@ function pvHistoryCard(list){
       <div class="hist-main">
         <div class="hist-line">
           <span class="chip-sm ${m.result}">${m.result === 'w' ? 'VITÓRIA' : 'DERROTA'}</span>
-          <b>${pvModeLabel(m.mode)}</b><span class="tag-sm ${m.ranked ? 'rk' : ''}">${m.ranked ? 'Ranked' : 'Casual'}</span>
+          <b>${pvModeLabel(m.mode)}</b><span class="tag-sm ${m.ranked ? 'rk' : ''}">${m.ranked ? 'Ranked' : 'Casual'}</span>${isMirror(m) ? '<span class="tag-sm" title="Mesmos personagens dos dois lados: não entra nas taxas">Espelhado · fora das taxas</span>' : ''}
           <span class="dim">· ${fmtDate(m.date)}</span>
         </div>
         <div>${facesInline(m.mine, 30)}<span class="vs">VS</span>${facesInline(m.theirs, 30)}</div>
@@ -212,7 +217,7 @@ function pvHistoryCard(list){
       </div>
       ${canEditPvp(m) ? `<div class="hist-tools"><button class="mini-btn" data-act="edit" data-v="${m.id}">Editar</button><button class="mini-btn" data-act="del" data-v="${m.id}">Apagar</button></div>` : ''}
     </div>`).join('');
-  return `<div class="an-card full"><h3>Histórico</h3><p class="sub">Matches lançados, do mais recente para o mais antigo. Cada um edita ou apaga só os que lançou (a liderança com permissão de batalhas e o admin editam todos).</p>
+  return `<div class="an-card full"><h3>Histórico</h3><p class="sub">Matches lançados (inclusive os espelhados), do mais recente para o mais antigo. Cada um edita ou apaga só os que lançou (a liderança com permissão de batalhas e o admin editam todos).</p>
     <div class="hist">${items || '<div class="empty-box">Nenhum match neste filtro.</div>'}</div>
     ${sorted.length > 20 ? `<div style="margin-top:10px"><button class="mini-btn" data-act="allhist">${pvShowAllHist ? 'Mostrar menos' : `Mostrar todos (${sorted.length})`}</button></div>` : ''}</div>`;
 }
@@ -238,8 +243,9 @@ function renderPvp(){
   else if(!pvp.length) html += '<div class="an-card"><div class="empty-box">Nenhum match de PvP lançado ainda.<br>Clique em <b>+ Lançar match</b> depois de cada partida (1x1, 2x2 ou 3x3) para montar o histórico.</div></div>';
   else if(!list.length) html += '<div class="an-card"><div class="empty-box">Nenhum match neste filtro.</div></div>';
   else {
-    html += pvKpis(list);
-    html += `<div class="an-grid">${pvModesCard(list)}${pvBansCard(list)}${pvCharsCard(list)}${pvMatchupsCard(list)}${pvCounterCard(list)}${list.some(m => pvN(m) > 1) ? pvCombosCard(list) : ''}${pvHistoryCard(list)}</div>`;
+    const real = list.filter(m => !isMirror(m));
+    html += pvKpis(real, list.length - real.length);
+    html += `<div class="an-grid">${pvModesCard(real)}${pvBansCard(real)}${pvCharsCard(real)}${pvMatchupsCard(real)}${pvCounterCard(real)}${real.some(m => pvN(m) > 1) ? pvCombosCard(real) : ''}${pvHistoryCard(list)}</div>`;
   }
   tabPvp.innerHTML = html;
 }
@@ -335,6 +341,7 @@ function renderPvpForm(){
     ${cells('mine', 'Meu')}
     <div class="sec-head"><span>Time adversário</span><span class="filters"><button type="button" class="mini-btn" data-seq="theirs">&#9654; Preencher seguidos</button></span></div>
     ${cells('theirs', 'Rival')}
+    <p class="small-dim" style="margin-top:8px">Espelhado (mesmos personagens dos dois lados) fica no histórico, mas não conta nas taxas de vitória.</p>
     ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional, até 4)</span></span><span class="filters"><button type="button" class="mini-btn" data-seq="bans">&#9654; Preencher seguidos</button></span></div>
       <div class="face-row">${f.bans.map((id, i) => `<div class="face-cell">${pvFaceBtn('bans', i, id)}<span>Ban ${i + 1}</span></div>`).join('')}</div>` : ''}
     <label class="f" for="pvNote" style="margin-top:12px">Observação (opcional)</label>

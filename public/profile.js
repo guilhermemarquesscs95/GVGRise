@@ -160,6 +160,7 @@ function openProfile(first){
 }
 
 // perfil de outra pessoa (só leitura): posições e personagens preferidos
+let profViewNick = '';
 function openMemberProfile(nick){
   const p = roster.find(x => x.nick.toLowerCase() === String(nick).toLowerCase());
   if(!p) return;
@@ -168,6 +169,16 @@ function openMemberProfile(nick){
   const sec = roles.filter(r => r !== pri && r !== 'reserva');
   const mine = nickname && p.nick.toLowerCase() === nickname.toLowerCase();
   const favs = p.favs || [];
+  profViewNick = p.nick;
+  if(!battlesLoaded) send({t: 'get_battles'}, true);
+  const stats = battlesLoaded ? memberCharStats(p.nick) : null;
+  const favWL = (id) => {
+    if(!stats) return '<div class="pv-wl"><small>…</small></div>';
+    const e = stats.get(id);
+    if(!e) return '<div class="pv-wl"><small>sem GVG</small></div>';
+    const wp = Math.round(e.w / e.n * 100);
+    return `<div class="pv-wl" title="${e.w} vitórias · ${e.l} derrotas em GVG">${wlBar(e.w, e.l)}<small><b class="pw">${wp}%</b> · <b class="pl">${100 - wp}%</b></small><small class="pn">${e.n} GVG${e.n > 1 ? 's' : ''}</small></div>`;
+  };
   openModal(`
     <div class="prof-top">
       <div>${avatarHTML(p.nick, 72)}</div>
@@ -177,7 +188,9 @@ function openMemberProfile(nick){
     <div class="pv-sec"><div class="pv-k">Posição primária</div><div class="rbadges">${pri ? roleBadge(pri, true) : '<span class="small-dim">ainda não definida</span>'}</div></div>
     <div class="pv-sec"><div class="pv-k">Posições secundárias</div><div class="rbadges">${sec.length ? sec.map(r => roleBadge(r)).join('') : '<span class="small-dim">nenhuma</span>'}</div></div>
     <div class="pv-sec"><div class="pv-k">Personagens preferidos</div>
-      ${favs.length ? `<div class="pv-favs">${favs.map(id => `<div class="pv-fav">${faceHTML(id, 56)}<span>${esc(charName(id))}</span></div>`).join('')}</div>` : '<span class="small-dim">ainda não escolheu</span>'}</div>
+      ${favs.length ? `<div class="pv-favs">${favs.map(id => `<div class="pv-fav">${faceHTML(id, 56)}<span>${esc(charName(id))}</span>${favWL(id)}</div>`).join('')}</div>
+      ${stats ? '<p class="note-low" style="margin-top:8px"><b class="pw">verde</b> = % de vitórias · <b class="pl">vermelho</b> = % de derrotas nos GVGs em que o nick dele foi lançado com o personagem.</p>' : ''}` : '<span class="small-dim">ainda não escolheu</span>'}</div>
+    ${stats && stats.size ? `<div class="pv-sec"><div class="pv-k">Mais usados nos GVGs</div><div class="pv-favs">${[...stats].sort((a, b) => b[1].n - a[1].n).slice(0, 5).map(([id]) => `<div class="pv-fav">${faceHTML(id, 56)}<span>${esc(charName(id))}</span>${favWL(id)}</div>`).join('')}</div></div>` : ''}
     <div class="modal-actions">
       ${mine ? '<button class="primary-btn" id="pvEdit" type="button">Editar meu perfil</button>' : ''}
       <button class="ghost-btn" id="pvClose" type="button">Fechar</button>

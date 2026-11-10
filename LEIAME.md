@@ -42,3 +42,11 @@ Sem os Secrets valem os padrões do worker.js (grupo: Kahineterno123@ · admin: 
 
 ## Aba PvP (1x1, 2x2, 3x3)
 Qualquer membro lança matches de PvP (modalidade, casual ou ranked, vitória/derrota, seu time e o adversário, só personagens, sem identificar jogadores). No ranked dá para informar até 4 banimentos (opcional). A aba mostra aproveitamento por modalidade, personagens (nossos/rivais/todos), confrontos com vantagem, consulta de counters, duplas e trios, banimentos, histórico com filtros e CSV. Cada um edita/apaga só os seus; admin e quem tem "batalhas" editam todos.
+
+## Ajustes da semana
+- **Confirmação das equipes** vale só na semana do GVG: zera sozinha toda segunda-feira 00:00 (Brasília). Membros e mapas continuam, só volta a "Em montagem".
+- **Inimigo morto** fica 30 s no marcador (a cura continua 60 s).
+- **Análise**: nick opcional de cada rival ao lançar batalha; filtro por jogador (nosso ou adversário) e card "Jogadores adversários".
+- **Perfil**: abaixo de cada personagem preferido (e dos mais usados), barra de vitórias/derrotas nos GVGs.
+- **Personagens**: filtro por membro mostra todos os bonecos que ele joga e as taxas.
+- **PvP**: match espelhado (mesmos personagens dos dois lados) fica no histórico mas não conta nas taxas.

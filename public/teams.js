@@ -49,13 +49,19 @@ function setPlan(p){
 
 /* ---------- o que vale para a pessoa logada ---------- */
 
+// a confirmação vale só na semana do GVG: zera na segunda-feira 00:00 (Brasília)
+function gvgWeekStart(now){
+  const off = 3 * 36e5, d = new Date(now - off), dow = (d.getUTCDay() + 6) % 7;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow) + off;
+}
+function teamConfirmed(tp){ return !!(tp && tp.confirmed && tp.confirmedAt >= gvgWeekStart(Date.now())); }
 // só equipes confirmadas valem para os membros
 function myPlacement(){
   if(!plan || !nickname) return null;
   const n = nickname.toLowerCase();
   for(const t of TEAMS){
     const tp = plan.teams && plan.teams[t.id];
-    if(!tp || !tp.confirmed) continue;
+    if(!teamConfirmed(tp)) continue;
     const i = tp.slots.findIndex(x => x && x.toLowerCase() === n);
     if(i >= 0) return {team: t.id, kind: 'slot', idx: i};
     const j = tp.reserves.findIndex(x => x && x.toLowerCase() === n);
@@ -65,7 +71,7 @@ function myPlacement(){
 }
 function plannedMapFor(tid){
   const tp = plan && plan.teams && plan.teams[tid];
-  return tp && tp.confirmed && tp.map ? tp.map : null;
+  return teamConfirmed(tp) && tp.map ? tp.map : null;
 }
 // ao entrar, já deixa a pessoa na equipe dela
 function autoPickMyTeam(){
@@ -141,11 +147,12 @@ function teamCardHTML(t){
   const mapPill = can('equipes')
     ? `<select class="tm-map" data-act="map" data-t="${t.id}" aria-label="Mapa da ${t.name}"><option value="">Mapa a definir</option>${MAPS.map(m => `<option value="${m.id}"${tp.map === m.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>`
     : `<div class="tm-map static">${tp.map ? esc(mapName(tp.map)) : 'Mapa a definir'}</div>`;
-  const status = tp.confirmed ? '<span class="tm-status ok">Confirmada</span>' : '<span class="tm-status">Em montagem</span>';
+  const isConf = teamConfirmed(tp);
+  const status = isConf ? '<span class="tm-status ok">Confirmada</span>' : '<span class="tm-status">Em montagem</span>';
   const warn = miss.length
     ? `<div class="tm-warn">&#9888; Falta cobertura: ${esc(miss.join(', '))}</div>`
     : '<div class="tm-warn ok">&#10003; Equipe completa: todas as funções cobertas</div>';
-  return `<section class="tm-card${tp.confirmed ? ' confirmed' : ''}" style="--tc:${t.color}" data-team="${t.id}">
+  return `<section class="tm-card${isConf ? ' confirmed' : ''}" style="--tc:${t.color}" data-team="${t.id}">
     <header class="tm-head"><h3>${t.name.toUpperCase()}</h3>${status}</header>
     ${mapPill}
     <div class="tm-list">${tp.slots.map((n, i) => rowHTML(t.id, 's', i, n, tp)).join('')}</div>
@@ -153,7 +160,7 @@ function teamCardHTML(t){
     <div class="tm-list res">${tp.reserves.map((n, i) => rowHTML(t.id, 'r', i, n, tp)).join('')}</div>
     ${warn}
     ${can('equipes') ? `<div class="tm-actions">
-      ${tp.confirmed ? '<button class="primary-btn done" type="button" disabled>&#10003; Equipe confirmada</button>' : `<button class="primary-btn" type="button" data-act="confirm" data-t="${t.id}"${filled ? '' : ' disabled'}>&#10003; Confirmar equipe</button>`}
+      ${isConf ? '<button class="primary-btn done" type="button" disabled>&#10003; Equipe confirmada</button>' : `<button class="primary-btn" type="button" data-act="confirm" data-t="${t.id}"${filled ? '' : ' disabled'}>&#10003; Confirmar equipe</button>`}
       <button class="ghost-btn" type="button" data-act="clear" data-t="${t.id}" title="Esvaziar esta equipe">Limpar</button>
     </div>` : ''}
   </section>`;
@@ -172,7 +179,7 @@ function renderTeams(){
 /* ---------- edição (admin) ---------- */
 
 function commitTeam(tid, tp, confirmed){
-  tp.confirmed = !!confirmed;
+  tp.confirmed = !!confirmed; tp.confirmedAt = confirmed ? Date.now() : 0;
   if(!plan) plan = {teams: {}};
   plan.teams[tid] = tp;
   send({t: 'plan_set', team: tid, plan: tp});

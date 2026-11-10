@@ -22,7 +22,7 @@ const DEFAULT_PASSWORD = "Kahineterno123@";
 const DEFAULT_ADMIN_USER = "tiopatinhas";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
-const CYCLE_MS = 60_000; // tempo de renascimento (cura e inimigos)
+const CYCLE_MS = 30_000; // tempo que um inimigo fica morto (a cura renasce a cada 60 s, calculado no cliente)
 const POINT_DEBOUNCE_MS = 5_000; // ignora duplo clique de dois jogadores no mesmo ponto
 const TEAM_IDS = ["1", "2", "3", "4"]; // o jogo só permite 4 equipes
 const ENEMY_SLOTS = ["tank", "sup", "p1", "p2", "p3", "p4"];
@@ -132,9 +132,16 @@ function sanitizePlayers(list, cargos, prev = []) {
   return out;
 }
 
+// A confirmação das equipes vale só na semana do GVG: zera na segunda-feira 00:00 (horário de Brasília).
+function gvgWeekStart(now) {
+  const off = 3 * 3600_000;
+  const d = new Date(now - off);
+  const dow = (d.getUTCDay() + 6) % 7; // segunda = 0
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow) + off;
+}
 // escala das equipes: { "1": { map, slots[6], reserves[2], leader, confirmed }, ... }
 function emptyTeamPlan() {
-  return { map: "", slots: Array(MAIN_SLOTS).fill(""), reserves: Array(RESERVE_SLOTS).fill(""), leader: "", confirmed: false };
+  return { map: "", slots: Array(MAIN_SLOTS).fill(""), reserves: Array(RESERVE_SLOTS).fill(""), leader: "", confirmed: false, confirmedAt: 0 };
 }
 function emptyPlan() {
   const teams = {};
@@ -159,7 +166,8 @@ function sanitizeTeamPlan(raw, roster) {
   const reserves = Array.from({ length: RESERVE_SLOTS }, (_, i) => pickOne((r.reserves || [])[i]));
   const leader = [...slots, ...reserves].includes(canon(r.leader)) ? canon(r.leader) : "";
   const map = ID_RE.test(String(r.map ?? "")) ? String(r.map) : "";
-  return { map, slots, reserves, leader, confirmed: !!r.confirmed };
+  const confirmed = !!r.confirmed;
+  return { map, slots, reserves, leader, confirmed, confirmedAt: confirmed ? Number(r.confirmedAt) || 0 : 0 };
 }
 
 function sanitizeBattle(b) {
@@ -183,10 +191,13 @@ function sanitizeBattle(b) {
     our.push({ p, c });
   }
   const enemy = [];
-  for (const c of (Array.isArray(b.enemy) ? b.enemy : []).slice(0, 8)) {
+  const enemyP = []; // nick (opcional) de cada adversário, alinhado com "enemy"
+  const rawP = Array.isArray(b.enemyP) ? b.enemyP : [];
+  for (const [i, c] of (Array.isArray(b.enemy) ? b.enemy : []).slice(0, 8).entries()) {
     const s = String(c ?? "");
     if (!CHAR_RE.test(s)) return null;
     enemy.push(s);
+    enemyP.push(third ? "" : cleanNick(rawP[i]));
   }
   return {
     ...(third ? { kind: "third", alliance2 } : {}),
@@ -197,6 +208,7 @@ function sanitizeBattle(b) {
     team: !third && TEAM_IDS.includes(String(b.team ?? "")) ? String(b.team) : "",
     our,
     enemy,
+    ...(enemyP.some(Boolean) ? { enemyP } : {}),
     note: cleanText(b.note, 200),
   };
 }
@@ -270,7 +282,13 @@ export class Room extends DurableObject {
 
   async getPlan() {
     if (!this.plan) this.plan = (await this.ctx.storage.get("plan")) || emptyPlan();
-    for (const t of TEAM_IDS) this.plan.teams[t] ||= emptyTeamPlan();
+    let changed = false;
+    const wk = gvgWeekStart(Date.now());
+    for (const t of TEAM_IDS) {
+      const tp = (this.plan.teams[t] ||= emptyTeamPlan());
+      if (tp.confirmed && !(tp.confirmedAt >= wk)) { tp.confirmed = false; tp.confirmedAt = 0; changed = true; }
+    }
+    if (changed) await this.ctx.storage.put("plan", this.plan);
     return this.plan;
   }
 
@@ -576,7 +594,7 @@ export class Room extends DurableObject {
         if (!TEAM_IDS.includes(team) || !ENEMY_SLOTS.includes(slot)) return;
         const en = (data.enemies[team] ||= {});
         const prev = en[slot];
-        // trava: só dá pra marcar de novo depois dos 60s completos
+        // trava: só dá pra marcar de novo depois dos 30s completos
         if (!prev || now - prev >= CYCLE_MS) {
           en[slot] = now;
           await this.save();
@@ -660,6 +678,7 @@ export class Room extends DurableObject {
         const roster = await this.getRoster();
         const plan = await this.getPlan();
         const mine = sanitizeTeamPlan(msg.plan, roster);
+        mine.confirmedAt = mine.confirmed ? Date.now() : 0;
         const taken = new Set([...mine.slots, ...mine.reserves].filter(Boolean));
         plan.teams[team] = mine;
         for (const t of TEAM_IDS) {
