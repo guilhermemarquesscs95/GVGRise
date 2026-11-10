@@ -392,7 +392,6 @@ function pvPick(kind, i, single){
     get: n => pvForm[kind][n],
     set: (n, id) => {
       if(id) pvForm[kind].forEach((x, k) => { if(k !== n && x === id){ pvForm[kind][k] = ''; pvUpd(kind, k); } });   // sem repetir no mesmo lado
-      if(id && (kind === 'bans' || kind === 'bansE')){ const o = kind === 'bans' ? 'bansE' : 'bans'; pvForm[o].forEach((x, k) => { if(x === id){ pvForm[o][k] = ''; pvUpd(o, k); } }); }   // nem nos dois lados
       pvForm[kind][n] = id; pvUpd(kind, n);
     }});
 }

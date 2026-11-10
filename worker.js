@@ -234,12 +234,12 @@ function sanitizePvp(m) {
   const theirs = uniqChars(m.theirs);
   if (!mine || !theirs || mine.length !== n || theirs.length !== n) return null;
   const ranked = !!m.ranked;
-  // banimentos (só no ranked, opcionais): bans = os que EU fiz, bansE = os que o rival fez; juntos no máximo 4, sem repetir
+  // banimentos (só no ranked, opcionais): bans = os que EU fiz, bansE = os que o rival fez; juntos no máximo 4; o mesmo personagem pode ser banido pelos dois lados
   let bans = [], bansE = [];
   if (ranked) {
     bans = uniqChars(m.bans);
     bansE = uniqChars(m.bansE);
-    if (!bans || !bansE || bans.length + bansE.length > 4 || bans.some((c) => bansE.includes(c))) return null;
+    if (!bans || !bansE || bans.length + bansE.length > 4) return null;
   }
   return { mode, ranked, date, result, mine, theirs, bans, bansE, note: cleanText(m.note, 200) };
 }
