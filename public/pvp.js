@@ -348,7 +348,7 @@ function renderPvpForm(){
     <div class="sec-head"><span>Time adversário</span><span class="filters"><button type="button" class="mini-btn" data-seq="theirs">&#9654; Preencher seguidos</button></span></div>
     ${cells('theirs', 'Rival')}
     <p class="small-dim" style="margin-top:8px">Espelhado (mesmos personagens dos dois lados) fica no histórico, mas não conta nas taxas de vitória.</p>
-    ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional · de 0 a 4 no total, sem mínimo: pode lançar só 1, 2 ou nenhum)</span></span></div>
+    ${f.ranked ? `<div class="sec-head"><span>Banimentos <span class="small-dim">(opcional · até 4 de cada lado, sem mínimo: pode lançar só 1, 2 ou nenhum)</span></span></div>
       <div class="sec-head" style="margin-top:4px"><span class="small-dim">Nossos bans</span><span class="filters"><button type="button" class="mini-btn" data-seq="bans">&#9654; Preencher seguidos</button></span></div>
       <div class="face-row">${f.bans.map((id, i) => `<div class="face-cell">${pvFaceBtn('bans', i, id)}<span>Ban ${i + 1}</span></div>`).join('')}</div>
       <div class="sec-head" style="margin-top:4px"><span class="small-dim">Bans do rival</span><span class="filters"><button type="button" class="mini-btn" data-seq="bansE">&#9654; Preencher seguidos</button></span></div>
@@ -402,7 +402,6 @@ function pvSave(next){
   if(!f.result) return pvErr('Marque Vitória ou Derrota.');
   if(f.mine.some(x => !x)) return pvErr('Escolha todos os personagens do seu time.');
   if(f.theirs.some(x => !x)) return pvErr('Escolha todos os personagens do time adversário.');
-  if(f.ranked && f.bans.filter(Boolean).length + f.bansE.filter(Boolean).length > 4) return pvErr('No total são no máximo 4 banimentos (os seus mais os do rival).');
   const match = {id: f.id || undefined, mode: f.mode, ranked: f.ranked, date: f.date, result: f.result, mine: f.mine, theirs: f.theirs,
     bans: f.ranked ? f.bans.filter(Boolean) : [], bansE: f.ranked ? f.bansE.filter(Boolean) : [], note: f.note.trim()};
   pvSavingNext = next;

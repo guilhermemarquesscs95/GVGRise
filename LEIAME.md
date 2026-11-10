@@ -50,5 +50,5 @@ Qualquer membro lança matches de PvP (modalidade, casual ou ranked, vitória/de
 - **Perfil**: abaixo de cada personagem preferido (e dos mais usados), barra de vitórias/derrotas nos GVGs.
 - **Personagens**: filtro por membro mostra todos os bonecos que ele joga e as taxas.
 - **PvP**: match espelhado (mesmos personagens dos dois lados) fica no histórico mas não conta nas taxas.
-- **PvP ranked**: banimentos separados em "nossos" e "do rival" (máximo 4 no total, opcionais).
+- **PvP ranked**: banimentos separados em "nossos" e "do rival" (até 4 de cada lado, sem mínimo).
 - **Personagens**: o perfil do personagem mostra "Fraco contra" e "Forte contra" com % de vitória/derrota e nº de jogos (GVG, PvP ou os dois).
