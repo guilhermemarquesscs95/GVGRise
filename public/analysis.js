@@ -40,6 +40,7 @@ function memberCharStats(nick){
 function onBattles(list){
   battles = list;
   battlesLoaded = true;
+  if(typeof refreshCounters === 'function') refreshCounters();
   if(typeof profViewNick !== 'undefined' && profViewNick && $('pvClose')) openMemberProfile(profViewNick);
   if(currentTab === 'analise') renderAnalysis();
   if(currentTab === 'personagens') renderCharacters();

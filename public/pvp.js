@@ -19,7 +19,7 @@ function enterPvp(){
   if(!pvpLoaded) send({t: 'pvp_get'}, true);
   renderPvp();
 }
-function onPvp(list){ pvp = list; pvpLoaded = true; if(currentTab === 'pvp') renderPvp(); }
+function onPvp(list){ pvp = list; pvpLoaded = true; if(currentTab === 'pvp') renderPvp(); if(typeof refreshCounters === 'function') refreshCounters(); }
 function onPvpDirty(){ send({t: 'pvp_get'}, true); }
 
 const canEditPvp = (m) => isAdmin || can('batalhas') || (m.by && nickname && String(m.by).toLowerCase() === nickname.toLowerCase());

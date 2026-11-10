@@ -69,7 +69,46 @@ function charStatRow(label, sub, entries, id){
     <div class="cs-val"><span class="cs-n">${t.n} uso${t.n > 1 ? 's' : ''}</span>${wlBar(t.w, t.l)}<span class="cs-wl">${t.w}-${t.l}</span>${pctCell(t.w, t.n)}</div></div>`;
 }
 
+/* ---------- counters: contra quem o personagem é forte e fraco ---------- */
+let chSrc = 'tudo';            // 'tudo' | 'gvg' | 'pvp'
+let chOpenId = '';
+const CN_MIN = 2;              // mínimo de partidas para um confronto aparecer
+function counterData(id, src){
+  const m = new Map();
+  const add = (y, won) => { if(y === id) return; const e = m.get(y) || {n: 0, w: 0}; e.n++; if(won) e.w++; m.set(y, e); };
+  if(src !== 'pvp') battles.forEach(b => {
+    const [A, B] = sidesOf(b), ia = A.chars.includes(id), ib = B.chars.includes(id);
+    if(ia && !ib) B.chars.forEach(y => add(y, A.won));          // espelho (nos dois lados) não conta
+    if(ib && !ia) A.chars.forEach(y => add(y, B.won));
+  });
+  if(src !== 'gvg') pvp.filter(x => !isMirror(x)).forEach(x => {
+    const im = x.mine.includes(id), it = x.theirs.includes(id);
+    if(im && !it) x.theirs.forEach(y => add(y, x.result === 'w'));
+    if(it && !im) x.mine.forEach(y => add(y, x.result === 'l'));
+  });
+  return [...m].map(([y, e]) => ({id: y, ...e})).filter(e => e.n >= CN_MIN);
+}
+function counterSectionHTML(id){
+  if(!battlesLoaded || !pvpLoaded) return '<div class="small-dim">Carregando partidas…</div>';
+  const all = counterData(id, chSrc);
+  const sm = (e) => (e.w + 1) / (e.n + 2);
+  const weak = all.filter(e => e.w / e.n < .5).sort((a, b) => sm(a) - sm(b) || b.n - a.n).slice(0, 5);
+  const strong = all.filter(e => e.w / e.n > .5).sort((a, b) => sm(b) - sm(a) || b.n - a.n).slice(0, 5);
+  const tiles = (rows, cls) => rows.length ? `<div class="cn-grid">${rows.map(e => {
+    const wp = Math.round(e.w / e.n * 100);
+    return `<div class="cn-tile ${cls}" title="${esc(charName(e.id))}: ${e.w} vitórias, ${e.n - e.w} derrotas">${faceHTML(e.id, 48)}<span class="cn-name">${esc(charName(e.id))}</span>
+      <b class="cn-w">${wp}%</b><small class="cn-l">derrota ${100 - wp}%</small><small class="cn-n">${e.n} jogos</small></div>`;
+  }).join('')}</div>` : '<div class="small-dim" style="padding:6px 0">Ainda não há confrontos suficientes (mínimo de ' + CN_MIN + ' partidas contra o mesmo personagem).</div>';
+  return `<div class="card-tools"><div class="seg">${[['tudo', 'Tudo'], ['gvg', 'GVG'], ['pvp', 'PvP']].map(([v, l]) => `<button type="button" data-csrc="${v}" aria-pressed="${chSrc === v}">${l}</button>`).join('')}</div></div>
+    <div class="cn-h2">Fraco contra <small>(toma counter de)</small></div>${tiles(weak, 'weak')}
+    <div class="cn-h2">Forte contra <small>(counteria)</small></div>${tiles(strong, 'strong')}
+    <p class="note-low">% = chance de vitória de ${esc(charName(id))} quando o personagem do quadro está do outro lado. Mesmo personagem nos dois lados (espelho) não conta. No GVG a comparação é composição contra composição, então é menos precisa que no PvP.</p>`;
+}
+function refreshCounters(){ const el = $('cnSec'); if(el && chOpenId) el.innerHTML = counterSectionHTML(chOpenId); }
+
 function openCharacter(id){
+  chOpenId = id;
+  if(!pvpLoaded) send({t: 'pvp_get'}, true);
   const fans = (charFans().get(id) || []).sort(byNick);
   const stats = !battlesLoaded
     ? '<div class="small-dim">Carregando batalhas…</div>'
@@ -85,10 +124,14 @@ function openCharacter(id){
       <p class="note-low">Percentual apagado = menos de ${LOW_N} usos (amostra pequena).</p></div>
     <div class="pv-sec"><div class="pv-k">Quem da aliança joga com ele</div>
       ${fans.length ? `<div class="cf-list">${fans.map(p => `<button type="button" class="cf" data-nick="${esc(p.nick)}">${avatarHTML(p.nick, 26)}<b>${esc(p.nick)}</b>${(p.primary || (p.roles || [])[0]) ? roleBadge(p.primary || p.roles[0], true) : ''}</button>`).join('')}</div>` : '<span class="small-dim">—</span>'}</div>
-    <div class="pv-sec"><div class="pv-k">Counters e notas</div><div class="soon">Em breve: winrate detalhado, counters e notas deste personagem.</div></div>
+    <div class="pv-sec"><div class="pv-k">Counters</div><div id="cnSec">${counterSectionHTML(id)}</div></div>
+    <div class="pv-sec"><div class="pv-k">Notas</div><div class="soon">Em breve: notas deste personagem.</div></div>
     <div class="modal-actions"><button class="ghost-btn" id="chClose" type="button">Fechar</button></div>`);
   $('chClose').addEventListener('click', closeModal);
-  $('modalBox').addEventListener('click', (e) => { const b = e.target.closest('.cf'); if(b) openMemberProfile(b.dataset.nick); });
+  $('modalBox').addEventListener('click', (e) => {
+    const b = e.target.closest('.cf'); if(b) openMemberProfile(b.dataset.nick);
+    const s = e.target.closest('[data-csrc]'); if(s){ chSrc = s.dataset.csrc; refreshCounters(); }
+  });
 }
 
 tabPersonagens.addEventListener('input', (e) => {
