@@ -32,6 +32,7 @@ function pveIcon(key, size){
   return src ? `<img class="pe-ico" src="${src}" alt="" width="${s}" height="${s}" style="--s:${s}px">` : `<span class="pe-ico pe-ico-t" style="--s:${s}px">BR</span>`;
 }
 const peDiff = (d) => `<span class="df ${d}">${PVE_DIFF[d] || d}</span>`;
+const peFixed = () => '<span class="df fix" title="PT fixa: continua na semana seguinte, depois do reset de sexta">FIXA</span>';
 const peRec = () => '<span class="df rec" title="Modo record: tempo limite para ganhar bônus. Costuma ser para contas Endgame.">RECORD</span>';
 const peRole = (r) => r === 'any' ? '<span class="rbadge" style="--c:#8A99A8">Livre</span>' : roleBadge(r);
 const peFaces = (ids, size) => (ids || []).length ? facesInline(ids, size) : '<span class="small-dim">sem personagem indicado</span>';
@@ -57,14 +58,14 @@ function groupCard(g){
     </div>`).join('');
   return `<section class="pt-card${open ? '' : ' full'}${inside ? ' mine' : ''}">
     <header class="pt-head">${pveIcon(C.icon, 40)}
-      <div class="pt-title"><b>${C.name}</b><div class="pt-tags">${peDiff(g.diff)}${g.record ? peRec() : ''}<span class="small-dim">${g.size} jogadores</span></div></div>
+      <div class="pt-title"><b>${C.name}</b><div class="pt-tags">${peDiff(g.diff)}${g.record ? peRec() : ''}${g.fixed ? peFixed() : ''}<span class="small-dim">${g.size} jogadores</span></div></div>
       <span class="pt-state ${open ? 'open' : 'closed'}">${open ? `${open} vaga${open > 1 ? 's' : ''}` : 'CHEIA'}</span>
     </header>
     ${g.note ? `<div class="pt-note">“${esc(g.note)}”</div>` : ''}
     ${bosses}
     <div class="pt-slots">${slots}</div>
     ${invs.length && boss ? `<div class="pt-invs"><span class="small-dim">Convidados:</span> ${invs.map(i => `<span class="inv-chip">${esc(i.to)}<button type="button" data-act="delinv" data-v="${i.id}" title="Cancelar convite">&times;</button></span>`).join('')}</div>` : ''}
-    <footer class="pt-foot"><span class="small-dim">Dono: ${esc(g.owner)} · ${peAgo(g.ts)}</span>
+    <footer class="pt-foot"><span class="small-dim">Dono: ${esc(g.owner)} · ${peAgo(g.ts)}${C.bosses.length ? (g.fixed ? ' · fixa: segue após o reset de sexta' : ' · acaba no reset de sexta') : ''}</span>
       <span class="pt-btns">${inside ? `<button class="mini-btn" type="button" data-act="leave" data-g="${g.id}">Sair</button>` : ''}
       ${boss ? `<button class="mini-btn" type="button" data-act="editg" data-g="${g.id}">Editar</button><button class="mini-btn" type="button" data-act="delg" data-g="${g.id}">Apagar PT</button>` : ''}</span></footer>
   </section>`;
@@ -123,7 +124,7 @@ function renderPve(){
       <div><h3 class="pve-h">PTs disponíveis <small>${gs.length}</small></h3>${gs.length ? gs.map(groupCard).join('') : '<div class="an-card"><div class="empty-box">Nenhuma PT montada' + (hasF ? ' neste filtro' : '') + '.<br>Clique em <b>+ Montar PT</b> para criar a sua.</div></div>'}</div>
       <div><h3 class="pve-h">Procurando PT <small>${ls.length}</small></h3>${ls.length ? ls.map(lfgCard).join('') : '<div class="an-card"><div class="empty-box">Ninguém procurando PT' + (hasF ? ' neste filtro' : '') + '.<br>Quer entrar numa? Clique em <b>+ Procurar PT</b>.</div></div>'}</div>
     </div>
-    <p class="note-low" style="margin-top:12px">PTs, pedidos e convites somem sozinhos depois de 24 h sem atualização.</p>`}`;
+    <p class="note-low" style="margin-top:12px">Os bosses resetam toda sexta 00:00 (virada de quinta para sexta): PT fixa continua com os mesmos membros e os bosses feitos zerados; PT não fixa acaba. PTs de raid e Boss Rush, pedidos e convites somem sozinhos depois de 24 h sem atualização.</p>`}`;
 }
 
 /* ---------- ações nos cartões ---------- */
@@ -150,7 +151,7 @@ tabPve.addEventListener('click', (e) => {
       const g = pveG.find(x => x.id === d.g); if(!g) return;
       const done = new Set(g.bossesDone || []); if(done.has(d.b)) done.delete(d.b); else done.add(d.b);
       g.bossesDone = [...done]; renderPve();
-      send({t: 'pve_group_save', group: {id: g.id, diff: g.diff, record: g.record, note: g.note, bossesDone: g.bossesDone}});
+      send({t: 'pve_group_save', group: {id: g.id, diff: g.diff, record: g.record, fixed: g.fixed, note: g.note, bossesDone: g.bossesDone}});
       return;
     }
     default: return;
@@ -190,8 +191,8 @@ function openPveForm(type, rec){
   if(type === 'pt'){
     const content = rec ? rec.content : (pvf.content || 'enies');
     const C = PVE[content];
-    pveForm = rec ? {type, id: rec.id, content, diff: rec.diff, size: rec.size, record: !!rec.record, note: rec.note || '', bosses: [...(rec.bossesDone || [])], mySlot: 0, chars: []}
-      : {type, id: '', content, diff: C.diffs[C.diffs.length - 1] === 'hard' && C.diffs.includes('elite') ? 'elite' : C.diffs[0], size: C.sizes[0], record: false, note: '', bosses: [], mySlot: 0, chars: []};
+    pveForm = rec ? {type, id: rec.id, content, diff: rec.diff, size: rec.size, record: !!rec.record, fixed: !!rec.fixed, note: rec.note || '', bosses: [...(rec.bossesDone || [])], mySlot: 0, chars: []}
+      : {type, id: '', content, diff: C.diffs[C.diffs.length - 1] === 'hard' && C.diffs.includes('elite') ? 'elite' : C.diffs[0], size: C.sizes[0], record: false, fixed: false, note: '', bosses: [], mySlot: 0, chars: []};
   } else {
     const content = rec ? rec.content : (pvf.content || 'enies');
     const C = PVE[content];
@@ -236,6 +237,7 @@ function renderPveForm(){
         ${common}
         ${C.sizes.length > 1 ? `<label class="f">Jogadores</label><div class="seg">${C.sizes.map(s => `<button type="button" data-size="${s}" aria-pressed="${f.size === s}"${f.id ? ' disabled' : ''}>${s}</button>`).join('')}</div>` : `<p class="small-dim" style="margin-top:8px">${f.size} jogadores${f.content === 'rush' ? ' (cada um leva 2 personagens)' : ''}.</p>`}
         ${C.bosses.length ? `<div class="sec-head"><span>Bosses já feitos <span class="small-dim">(opcional)</span></span></div><div class="pt-bchips">${C.bosses.map(b => `<button type="button" class="pt-boss${f.bosses.includes(b) ? ' done' : ''}" data-bd="${b}">${pveIcon(b, 26)}<i>${PVE_BOSS_NAME[b]}</i>${f.bosses.includes(b) ? '<b>&#10003;</b>' : ''}</button>`).join('')}</div>` : ''}
+        ${C.bosses.length ? `<label class="pv-ranked"><input type="checkbox" id="peFix"${f.fixed ? ' checked' : ''}><span><b>PT fixa</b><small>os bosses resetam toda sexta 00:00. Fixa: continua na semana seguinte com os mesmos membros. Não fixa: acaba no reset.</small></span></label>` : ''}
         ${f.id ? '' : `${f.content === 'rush' ? '' : `<label class="f" for="peMy" style="margin-top:12px">Sua função na PT</label>
           <select class="nick-input" id="peMy">${pveSlotRoles(f.content, f.size).map((r, i) => `<option value="${i}"${i === f.mySlot ? ' selected' : ''}>${PVE_ROLE_LABEL[r]}${r === 'any' ? ' (qualquer DPS)' : ''}</option>`).join('')}</select>`}
           ${peCharsHTML(f)}`}
@@ -259,9 +261,10 @@ function renderPveForm(){
   box.addEventListener('input', (e) => { if(e.target.id === 'peNote') f.note = e.target.value; });
   box.addEventListener('change', (e) => {
     const t = e.target;
-    if(t.id === 'peCont'){ const C = PVE[t.value]; f.content = t.value; f.diff = C.diffs.includes(f.diff) ? f.diff : (C.diffs.includes('elite') ? 'elite' : C.diffs[0]); f.size = C.sizes.includes(f.size) ? f.size : C.sizes[0]; f.bosses = []; f.mySlot = 0; if(!(C.record && f.diff === 'hard')) f.record = false; peFit(f); renderPveForm(); }
+    if(t.id === 'peCont'){ const C = PVE[t.value]; f.content = t.value; f.diff = C.diffs.includes(f.diff) ? f.diff : (C.diffs.includes('elite') ? 'elite' : C.diffs[0]); f.size = C.sizes.includes(f.size) ? f.size : C.sizes[0]; f.bosses = []; f.fixed = false; f.mySlot = 0; if(!(C.record && f.diff === 'hard')) f.record = false; peFit(f); renderPveForm(); }
     else if(t.id === 'peDiff'){ f.diff = t.value; if(!(PVE[f.content].record && f.diff === 'hard')) f.record = false; peFit(f); renderPveForm(); }
     else if(t.id === 'peRec') f.record = t.checked;
+    else if(t.id === 'peFix') f.fixed = t.checked;
     else if(t.id === 'peMy') f.mySlot = Number(t.value);
     else if(t.id === 'peSlot') f.slot = Number(t.value);
   });
@@ -292,7 +295,7 @@ function peSave(){
     if(!send(msg)) return;
     if(f.inv){ closePicker(); closeModal(); pveForm = null; showBanner('Você entrou na PT.'); return; }
   } else if(f.type === 'pt'){
-    const group = {id: f.id || undefined, content: f.content, diff: f.diff, size: f.size, record: f.record, note: f.note.trim(), bossesDone: f.bosses};
+    const group = {id: f.id || undefined, content: f.content, diff: f.diff, size: f.size, record: f.record, fixed: f.fixed, note: f.note.trim(), bossesDone: f.bosses};
     if(!f.id){ group.mySlot = f.mySlot; group.chars = chars; }
     if(!send({t: 'pve_group_save', group})) return;
   } else {

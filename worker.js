@@ -254,7 +254,16 @@ const PVE_CONTENTS = {
   jaya: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["van_augur", "jesus_burgess"] },
   novos: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["yokozuna", "humandrill", "duval"] },
 };
-const PVE_TTL = 24 * 3600_000; // PT, pedido e convite somem sozinhos depois de 24 h sem atualização
+const PVE_TTL = 24 * 3600_000; // PT de raid/rush, pedido e convite somem sozinhos depois de 24 h sem atualização
+// Os bosses (semanal, Jaya, novos) resetam toda sexta-feira 00:00 (Brasília), na virada de quinta para sexta:
+// PT fixa continua (mesmos membros, bosses feitos zerados); PT não fixa acaba. As PTs de boss não têm o prazo de 24 h.
+function pveCycleStart(now) {
+  const off = 3 * 3600_000;
+  const d = new Date(now - off);
+  const back = (d.getUTCDay() - 5 + 7) % 7; // dias desde a última sexta
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - back) + off;
+}
+const pveIsBoss = (content) => !!(PVE_CONTENTS[content] && PVE_CONTENTS[content].bosses.length);
 const pveMaxChars = (content, diff) => (content === "enies" || content === "enel" ? 4 : content === "rush" ? 2 : diff === "hard" ? 2 : 1);
 const pveSlotRoles = (content, size) => (content === "rush" ? ["any", "any"] : size === 6 ? [...PVE_ROLES, "any", "any"] : [...PVE_ROLES]);
 const pveChars = (arr, max) => {
@@ -312,10 +321,20 @@ export class Room extends DurableObject {
     const now = Date.now();
     const p = this.pve;
     const before = p.groups.length + p.lfg.length + p.invites.length;
-    p.groups = p.groups.filter((g) => now - g.ts < PVE_TTL);
+    let changed = false, reset = false;
+    const cs = pveCycleStart(now);
+    if (p.cycle === undefined) { p.cycle = cs; changed = true; }
+    else if (cs > p.cycle) {
+      p.cycle = cs; changed = true; reset = true;
+      p.groups = p.groups.filter((g) => !pveIsBoss(g.content) || g.fixed);
+      p.groups.forEach((g) => { if (pveIsBoss(g.content)) g.bossesDone = []; });
+      p.lfg = p.lfg.filter((l) => !pveIsBoss(l.content));
+    }
+    p.groups = p.groups.filter((g) => pveIsBoss(g.content) || now - g.ts < PVE_TTL);
     p.lfg = p.lfg.filter((l) => now - l.ts < PVE_TTL);
     p.invites = p.invites.filter((i) => now - i.ts < PVE_TTL && p.groups.some((g) => g.id === i.group));
-    if (p.groups.length + p.lfg.length + p.invites.length !== before) await this.ctx.storage.put("pve", p);
+    if (changed || p.groups.length + p.lfg.length + p.invites.length !== before) await this.ctx.storage.put("pve", p);
+    if (reset) this.broadcast({ t: "pve_dirty" });
     return p;
   }
   async savePve() {
@@ -957,7 +976,7 @@ export class Room extends DurableObject {
           if (p.groups.length >= 100 || p.groups.filter((x) => sameNick(x.owner, me)).length >= 3) return err("limite");
           const roles = pveSlotRoles(String(raw.content), size);
           const idx = Number.isInteger(raw.mySlot) && raw.mySlot >= 0 && raw.mySlot < roles.length ? raw.mySlot : 0;
-          g = { id: pveId(now), content: String(raw.content), diff, record: false, size, bossesDone: [], note: "", owner: me, ts: now,
+          g = { id: pveId(now), content: String(raw.content), diff, record: false, fixed: false, size, bossesDone: [], note: "", owner: me, ts: now,
             slots: roles.map((role) => ({ role, nick: "", chars: [] })) };
           g.slots[idx] = { role: roles[idx], nick: me, chars: pveChars(raw.chars, pveMaxChars(g.content, diff)) };
           p.groups.push(g);
@@ -970,6 +989,7 @@ export class Room extends DurableObject {
         }
         g.record = !!(C.record && g.diff === "hard" && raw.record);
         g.bossesDone = C.bosses.filter((b) => (Array.isArray(raw.bossesDone) ? raw.bossesDone : []).includes(b));
+        g.fixed = !!(C.bosses.length && raw.fixed);
         g.note = cleanText(raw.note, 120);
         g.ts = now;
         await this.savePve();
