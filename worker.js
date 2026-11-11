@@ -254,16 +254,16 @@ const PVE_CONTENTS = {
   jaya: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["van_augur", "jesus_burgess"] },
   novos: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["yokozuna", "humandrill", "duval"] },
 };
-const PVE_TTL = 24 * 3600_000; // PT de raid/rush, pedido e convite somem sozinhos depois de 24 h sem atualização
-// Os bosses (semanal, Jaya, novos) resetam toda sexta-feira 00:00 (Brasília), na virada de quinta para sexta:
-// PT fixa continua (mesmos membros, bosses feitos zerados); PT não fixa acaba. As PTs de boss não têm o prazo de 24 h.
+const PVE_TTL = 24 * 3600_000; // pedido e convite somem sozinhos depois de 24 h sem atualização
+// Todo o conteúdo PVE (raids, Boss Rush e bosses) reseta toda sexta-feira 00:00 (Brasília), na virada de quinta para sexta:
+// PT fixa continua (mesmos membros, bosses feitos zerados); PT não fixa acaba. As PTs não têm o prazo de 24 h.
 function pveCycleStart(now) {
   const off = 3 * 3600_000;
   const d = new Date(now - off);
   const back = (d.getUTCDay() - 5 + 7) % 7; // dias desde a última sexta
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - back) + off;
 }
-const pveIsBoss = (content) => !!(PVE_CONTENTS[content] && PVE_CONTENTS[content].bosses.length);
+const pveIsBoss = (content) => !!PVE_CONTENTS[content]; // (todo conteúdo reseta na sexta)
 const pveMaxChars = (content, diff) => (content === "enies" || content === "enel" ? 4 : content === "rush" ? 2 : diff === "hard" ? 2 : 1);
 const pveSlotRoles = (content, size) => (content === "rush" ? ["any", "any"] : size === 6 ? [...PVE_ROLES, "any", "any"] : [...PVE_ROLES]);
 const pveChars = (arr, max) => {
@@ -989,7 +989,7 @@ export class Room extends DurableObject {
         }
         g.record = !!(C.record && g.diff === "hard" && raw.record);
         g.bossesDone = C.bosses.filter((b) => (Array.isArray(raw.bossesDone) ? raw.bossesDone : []).includes(b));
-        g.fixed = !!(C.bosses.length && raw.fixed);
+        g.fixed = !!raw.fixed;
         g.note = cleanText(raw.note, 120);
         g.ts = now;
         await this.savePve();
