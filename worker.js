@@ -244,6 +244,30 @@ function sanitizePvp(m) {
   return { mode, ranked, date, result, mine, theirs, bans, bansE, note: cleanText(m.note, 200) };
 }
 
+// ---------- PvE: PTs disponíveis, quem procura PT e convites ----------
+const PVE_ROLES = ["tank", "support", "ranged", "melee"];
+const PVE_CONTENTS = {
+  enies: { diffs: ["normal", "elite", "hard"], sizes: [4], record: true, bosses: [] },
+  enel: { diffs: ["elite", "hard"], sizes: [4], record: true, bosses: [] },
+  rush: { diffs: ["elite", "hard"], sizes: [2], record: false, bosses: [] },
+  weekly: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["deathstalker", "barbarossa", "madera", "sanshoo", "hassan"] },
+  jaya: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["van_augur", "jesus_burgess"] },
+  novos: { diffs: ["normal", "elite", "hard"], sizes: [4, 6], record: false, bosses: ["yokozuna", "humandrill", "duval"] },
+};
+const PVE_TTL = 24 * 3600_000; // PT, pedido e convite somem sozinhos depois de 24 h sem atualização
+const pveMaxChars = (content, diff) => (content === "enies" || content === "enel" ? 4 : content === "rush" ? 2 : diff === "hard" ? 2 : 1);
+const pveSlotRoles = (content, size) => (content === "rush" ? ["any", "any"] : size === 6 ? [...PVE_ROLES, "any", "any"] : [...PVE_ROLES]);
+const pveChars = (arr, max) => {
+  const out = [];
+  for (const c of Array.isArray(arr) ? arr : []) {
+    const s = String(c ?? "");
+    if (CHAR_RE.test(s) && !out.includes(s) && out.length < max) out.push(s);
+  }
+  return out;
+};
+const pveId = (now) => now.toString(36) + Math.floor(Math.random() * 46656).toString(36).padStart(3, "0");
+const sameNick = (x, y) => !!x && !!y && String(x).toLowerCase() === String(y).toLowerCase();
+
 export class Room extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -251,6 +275,7 @@ export class Room extends DurableObject {
     this.roster = null;
     this.cargos = null;
     this.plan = null;
+    this.pve = null;
     this.accounts = null; // { nick(minúsculo): { salt, hash, perms[] } }
     this.fails = new Map(); // ip -> { n, until }
     // "ping" -> "pong" sem acordar o objeto (mantém a conexão viva sem custo)
@@ -280,6 +305,22 @@ export class Room extends DurableObject {
       });
     }
     return this.roster;
+  }
+
+  async getPve() {
+    if (!this.pve) this.pve = (await this.ctx.storage.get("pve")) || { groups: [], lfg: [], invites: [] };
+    const now = Date.now();
+    const p = this.pve;
+    const before = p.groups.length + p.lfg.length + p.invites.length;
+    p.groups = p.groups.filter((g) => now - g.ts < PVE_TTL);
+    p.lfg = p.lfg.filter((l) => now - l.ts < PVE_TTL);
+    p.invites = p.invites.filter((i) => now - i.ts < PVE_TTL && p.groups.some((g) => g.id === i.group));
+    if (p.groups.length + p.lfg.length + p.invites.length !== before) await this.ctx.storage.put("pve", p);
+    return p;
+  }
+  async savePve() {
+    await this.ctx.storage.put("pve", this.pve);
+    this.broadcast({ t: "pve_dirty" });
   }
 
   async getPlan() {
@@ -884,6 +925,207 @@ export class Room extends DurableObject {
         if (!(can("batalhas") || String(prev.by).toLowerCase() === String(a.nick).toLowerCase())) return deny();
         await this.ctx.storage.delete("p:" + id);
         this.broadcast({ t: "pvp_dirty" });
+        return;
+      }
+
+      // ---------- PvE (qualquer membro logado) ----------
+      case "pve_get": {
+        const p = await this.getPve();
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const invites = p.invites.filter((i) => a.admin || sameNick(i.to, me) || sameNick(i.by, me));
+        ws.send(JSON.stringify({ t: "pve", groups: p.groups, lfg: p.lfg, invites }));
+        return;
+      }
+
+      case "pve_group_save": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const err = (reason) => ws.send(JSON.stringify({ t: "pve_error", reason }));
+        if (!me) return deny();
+        const p = await this.getPve();
+        const raw = msg.group && typeof msg.group === "object" ? msg.group : {};
+        const id = String(raw.id ?? "");
+        let g = id ? p.groups.find((x) => x.id === id) : null;
+        if (id && !g) return err("sumiu");
+        if (g) {
+          if (!(a.admin || sameNick(g.owner, me))) return deny();
+        } else {
+          const C = PVE_CONTENTS[String(raw.content ?? "")];
+          if (!C) return err("conteudo");
+          const diff = String(raw.diff ?? "");
+          const size = Number(raw.size);
+          if (!C.diffs.includes(diff) || !C.sizes.includes(size)) return err("config");
+          if (p.groups.length >= 100 || p.groups.filter((x) => sameNick(x.owner, me)).length >= 3) return err("limite");
+          const roles = pveSlotRoles(String(raw.content), size);
+          const idx = Number.isInteger(raw.mySlot) && raw.mySlot >= 0 && raw.mySlot < roles.length ? raw.mySlot : 0;
+          g = { id: pveId(now), content: String(raw.content), diff, record: false, size, bossesDone: [], note: "", owner: me, ts: now,
+            slots: roles.map((role) => ({ role, nick: "", chars: [] })) };
+          g.slots[idx] = { role: roles[idx], nick: me, chars: pveChars(raw.chars, pveMaxChars(g.content, diff)) };
+          p.groups.push(g);
+        }
+        const C = PVE_CONTENTS[g.content];
+        if (g.id !== id) { /* criação já preenchida */ } else {
+          const diff = String(raw.diff ?? g.diff);
+          if (C.diffs.includes(diff)) g.diff = diff;
+          g.slots.forEach((sl) => { sl.chars = sl.chars.slice(0, pveMaxChars(g.content, g.diff)); });
+        }
+        g.record = !!(C.record && g.diff === "hard" && raw.record);
+        g.bossesDone = C.bosses.filter((b) => (Array.isArray(raw.bossesDone) ? raw.bossesDone : []).includes(b));
+        g.note = cleanText(raw.note, 120);
+        g.ts = now;
+        await this.savePve();
+        ws.send(JSON.stringify({ t: "pve_saved", id: g.id }));
+        return;
+      }
+
+      case "pve_group_del": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const p = await this.getPve();
+        const g = p.groups.find((x) => x.id === String(msg.id ?? ""));
+        if (!g) return;
+        if (!(a.admin || sameNick(g.owner, me))) return deny();
+        p.groups = p.groups.filter((x) => x !== g);
+        p.invites = p.invites.filter((i) => i.group !== g.id);
+        await this.savePve();
+        return;
+      }
+
+      case "pve_join": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const err = (reason) => ws.send(JSON.stringify({ t: "pve_error", reason }));
+        if (!me) return deny();
+        const p = await this.getPve();
+        const g = p.groups.find((x) => x.id === String(msg.id ?? ""));
+        if (!g) return err("sumiu");
+        if (g.slots.some((sl) => sameNick(sl.nick, me))) return err("ja");
+        const i = Number(msg.slot);
+        if (!Number.isInteger(i) || i < 0 || i >= g.slots.length || g.slots[i].nick) return err("vaga");
+        g.slots[i] = { role: g.slots[i].role, nick: me, chars: pveChars(msg.chars, pveMaxChars(g.content, g.diff)) };
+        g.ts = now;
+        p.invites = p.invites.filter((x) => !(x.group === g.id && sameNick(x.to, me)));
+        await this.savePve();
+        ws.send(JSON.stringify({ t: "pve_saved", id: g.id }));
+        return;
+      }
+
+      case "pve_leave": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const p = await this.getPve();
+        const g = p.groups.find((x) => x.id === String(msg.id ?? ""));
+        if (!g) return;
+        const sl = g.slots.find((x) => sameNick(x.nick, me));
+        if (!sl) return;
+        sl.nick = "";
+        sl.chars = [];
+        if (sameNick(g.owner, me)) {
+          const next = g.slots.find((x) => x.nick);
+          if (next) g.owner = next.nick;
+          else { p.groups = p.groups.filter((x) => x !== g); p.invites = p.invites.filter((i) => i.group !== g.id); }
+        }
+        g.ts = now;
+        await this.savePve();
+        return;
+      }
+
+      case "pve_kick": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const p = await this.getPve();
+        const g = p.groups.find((x) => x.id === String(msg.id ?? ""));
+        if (!g) return;
+        if (!(a.admin || sameNick(g.owner, me))) return deny();
+        const sl = g.slots[Number(msg.slot)];
+        if (!sl || !sl.nick || sameNick(sl.nick, g.owner)) return;
+        sl.nick = "";
+        sl.chars = [];
+        g.ts = now;
+        await this.savePve();
+        return;
+      }
+
+      case "pve_lfg_save": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const err = (reason) => ws.send(JSON.stringify({ t: "pve_error", reason }));
+        if (!me) return deny();
+        const p = await this.getPve();
+        const raw = msg.lfg && typeof msg.lfg === "object" ? msg.lfg : {};
+        const C = PVE_CONTENTS[String(raw.content ?? "")];
+        const diff = String(raw.diff ?? "");
+        if (!C || !C.diffs.includes(diff)) return err("config");
+        const id = String(raw.id ?? "");
+        let l = id ? p.lfg.find((x) => x.id === id) : null;
+        if (id && !l) return err("sumiu");
+        if (l) { if (!(a.admin || sameNick(l.nick, me))) return deny(); }
+        else {
+          if (p.lfg.length >= 200 || p.lfg.filter((x) => sameNick(x.nick, me)).length >= 5) return err("limite");
+          l = { id: pveId(now), nick: me };
+          p.lfg.push(l);
+        }
+        Object.assign(l, {
+          content: String(raw.content), diff, record: !!(C.record && diff === "hard" && raw.record),
+          roles: PVE_ROLES.filter((r) => (Array.isArray(raw.roles) ? raw.roles : []).includes(r)),
+          chars: pveChars(raw.chars, 8), note: cleanText(raw.note, 120), ts: now,
+        });
+        await this.savePve();
+        ws.send(JSON.stringify({ t: "pve_saved", id: l.id }));
+        return;
+      }
+
+      case "pve_lfg_del": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const p = await this.getPve();
+        const l = p.lfg.find((x) => x.id === String(msg.id ?? ""));
+        if (!l) return;
+        if (!(a.admin || sameNick(l.nick, me))) return deny();
+        p.lfg = p.lfg.filter((x) => x !== l);
+        await this.savePve();
+        return;
+      }
+
+      // o dono da PT convida alguém (de "Procurando PT") para entrar
+      case "pve_invite": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const err = (reason) => ws.send(JSON.stringify({ t: "pve_error", reason }));
+        if (!me) return deny();
+        const p = await this.getPve();
+        const g = p.groups.find((x) => x.id === String(msg.group ?? ""));
+        if (!g) return err("sumiu");
+        if (!(a.admin || sameNick(g.owner, me))) return deny();
+        const to = cleanNick(msg.to);
+        if (!to || g.slots.some((sl) => sameNick(sl.nick, to))) return err("ja");
+        if (!g.slots.some((sl) => !sl.nick)) return err("cheia");
+        if (p.invites.some((i) => i.group === g.id && sameNick(i.to, to))) return err("ja");
+        if (p.invites.length >= 300) return err("limite");
+        p.invites.push({ id: pveId(now), group: g.id, to, by: me, ts: now });
+        await this.savePve();
+        return;
+      }
+
+      case "pve_invite_reply": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const err = (reason) => ws.send(JSON.stringify({ t: "pve_error", reason }));
+        const p = await this.getPve();
+        const inv = p.invites.find((x) => x.id === String(msg.id ?? ""));
+        if (!inv || !sameNick(inv.to, me)) return err("sumiu");
+        const g = p.groups.find((x) => x.id === inv.group);
+        if (msg.accept && g) {
+          if (g.slots.some((sl) => sameNick(sl.nick, me))) return err("ja");
+          const i = Number(msg.slot);
+          if (!Number.isInteger(i) || i < 0 || i >= g.slots.length || g.slots[i].nick) return err("vaga");
+          g.slots[i] = { role: g.slots[i].role, nick: me, chars: pveChars(msg.chars, pveMaxChars(g.content, g.diff)) };
+          g.ts = now;
+        }
+        p.invites = p.invites.filter((x) => x !== inv);
+        await this.savePve();
+        return;
+      }
+
+      case "pve_invite_del": {
+        const me = a.nick || (a.admin ? "Admin" : "");
+        const p = await this.getPve();
+        const inv = p.invites.find((x) => x.id === String(msg.id ?? ""));
+        if (!inv) return;
+        if (!(a.admin || sameNick(inv.by, me))) return deny();
+        p.invites = p.invites.filter((x) => x !== inv);
+        await this.savePve();
         return;
       }
 

@@ -118,7 +118,7 @@ const pipBtn = $('pipBtn'), pipLabel = $('pipLabel'), pipNote = $('pipNote');
 const syncDot = $('syncDot'), syncText = $('syncText');
 const loginScreen = $('loginScreen'), bootScreen = $('bootScreen'), loginNick = $('loginNick'), loginPass = $('loginPass');
 const loginBtn = $('loginBtn'), loginError = $('loginError'), userName = $('userName'), logoutBtn = $('logoutBtn');
-const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca'), tabUsuarios = $('tabUsuarios'), tabPvp = $('tabPvp'), tabPersonagens = $('tabPersonagens');
+const adminBtn = $('adminBtn'), tabsBar = $('tabsBar'), tabCura = $('tabCura'), tabEquipes = $('tabEquipes'), tabAnalise = $('tabAnalise'), tabAlianca = $('tabAlianca'), tabUsuarios = $('tabUsuarios'), tabPvp = $('tabPvp'), tabPve = $('tabPve'), tabPersonagens = $('tabPersonagens');
 
 /* ---------- preferências locais (nick, senha, time e som ficam neste aparelho) ---------- */
 
@@ -237,6 +237,7 @@ function onServerMessage(ev){
       if(pendingNewPass){ password = pendingNewPass; pendingNewPass = ''; closeModal(); }
       justLoggedIn = true;
       if(typeof resetPvp === 'function') resetPvp();
+      if(typeof resetPve === 'function') resetPve();
       if(adminAttempt){ adminAttempt = false; closeModal(); }
       savePrefs();
       setConn(true);
@@ -287,6 +288,10 @@ function onServerMessage(ev){
       return;
     case 'battles': onBattles(msg.list || []); return;
     case 'battles_dirty': onBattlesDirty(); return;
+    case 'pve': onPve(msg); return;
+    case 'pve_dirty': onPveDirty(); return;
+    case 'pve_saved': onPveSaved(); return;
+    case 'pve_error': onPveError(msg.reason); return;
     case 'pvp': onPvp(msg.list || []); return;
     case 'pvp_dirty': onPvpDirty(); return;
     case 'pvp_saved': onPvpSaved(); return;
@@ -363,7 +368,7 @@ function setMode(m){
   } else {
     selectionScreen.classList.add('hidden');
     pointsScreen.classList.add('hidden');
-    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden'); tabUsuarios.classList.add('hidden'); tabPvp.classList.add('hidden'); tabPersonagens.classList.add('hidden');
+    tabCura.classList.add('hidden'); tabEquipes.classList.add('hidden'); tabAnalise.classList.add('hidden'); tabAlianca.classList.add('hidden'); tabUsuarios.classList.add('hidden'); tabPvp.classList.add('hidden'); tabPve.classList.add('hidden'); tabPersonagens.classList.add('hidden');
     closeFloating();
     closePicker();
     if(m === 'boot') bootScreen.textContent = `Entrando como ${nickname || 'Admin'}...`;
@@ -386,6 +391,7 @@ function applyTab(){
   tabUsuarios.classList.toggle('hidden', currentTab !== 'usuarios');
   tabPersonagens.classList.toggle('hidden', currentTab !== 'personagens');
   tabPvp.classList.toggle('hidden', currentTab !== 'pvp');
+  tabPve.classList.toggle('hidden', currentTab !== 'pve');
   tabsBar.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === currentTab ? 'true' : 'false'));
   if(currentTab === 'analise') enterAnalysis();
   if(currentTab === 'alianca') renderAlliance();
@@ -393,6 +399,7 @@ function applyTab(){
   if(currentTab === 'usuarios') renderUsers();
   if(currentTab === 'personagens') enterCharacters();
   if(currentTab === 'pvp') enterPvp();
+  if(currentTab === 'pve') enterPve();
   if(currentTab === 'cura') renderMyTeamCard();
 }
 tabsBar.addEventListener('click', (e)=>{
