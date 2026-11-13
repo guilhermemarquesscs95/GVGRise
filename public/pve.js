@@ -1,7 +1,7 @@
 /* ================= Aba PVE: montar PT, procurar PT e convites ================= */
 let pveG = [], pveL = [], pveI = [];
 let pveLoaded = false;
-const pvf = {content: '', diff: '', record: false};      // filtros
+const pvf = {content: '', diff: '', record: false, day: ''};      // filtros
 let pveForm = null;
 
 const peMe = () => nickname || (isAdmin ? 'Admin' : '');
@@ -25,6 +25,24 @@ function onPveError(reason){
   else showBanner(t);
 }
 
+/* ---------- disponibilidade (dias da semana e horários, horário de Brasília) ---------- */
+const PE_DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+function peDaysText(days){
+  const d = [...days].sort((a, b) => a - b);
+  if(d.length === 7) return 'Todos os dias';
+  const out = []; let i = 0;
+  while(i < d.length){
+    let j = i; while(j + 1 < d.length && d[j + 1] === d[j] + 1) j++;
+    out.push(j - i >= 2 ? `${PE_DAYS[d[i]]}–${PE_DAYS[d[j]]}` : d.slice(i, j + 1).map(x => PE_DAYS[x]).join(', '));
+    i = j + 1;
+  }
+  return out.join(', ');
+}
+const peAvailChips = (av) => av && av.length ? av.map(b => `<span class="av-chip"><b>${peDaysText(b.days)}</b> ${b.from}–${b.to}</span>`).join('') : '<span class="small-dim">horário a combinar</span>';
+const peOverlap = (a, b) => !!(a && a.length && b && b.length) && a.some(x => b.some(y => x.days.some(d => y.days.includes(d)) && x.from < y.to && y.from < x.to));
+const peHasDay = (av, d) => (av || []).some(b => b.days.includes(d));
+const peAvOk = (av) => av.every(b => b.days.length && b.from && b.to && b.from < b.to);
+
 /* ---------- peças visuais ---------- */
 function pveIcon(key, size){
   const src = PVE_ICONS[key];
@@ -45,6 +63,7 @@ function groupCard(g){
   const inside = g.slots.some(s => peSame(s.nick, me));
   const open = g.slots.filter(s => !s.nick).length;
   const invs = pveI.filter(i => i.group === g.id);
+  const fits = !inside && pveL.some(l => peSame(l.nick, me) && l.content === g.content && peOverlap(l.avail, g.avail));
   const bosses = C.bosses.length ? `<div class="pt-bosses"><span class="small-dim">Bosses ${boss ? '(clique para marcar os já feitos)' : ''}</span><div class="pt-bchips">${C.bosses.map(b => {
     const done = (g.bossesDone || []).includes(b);
     return `<${boss ? 'button type="button" data-act="tboss" data-g="' + g.id + '" data-b="' + b + '"' : 'span'} class="pt-boss${done ? ' done' : ''}" title="${PVE_BOSS_NAME[b]}${done ? ' · já feito' : ' · falta fazer'}">${pveIcon(b, 26)}<i>${PVE_BOSS_NAME[b]}</i>${done ? '<b>&#10003;</b>' : ''}</${boss ? 'button' : 'span'}>`;
@@ -58,9 +77,10 @@ function groupCard(g){
     </div>`).join('');
   return `<section class="pt-card${open ? '' : ' full'}${inside ? ' mine' : ''}">
     <header class="pt-head">${pveIcon(C.icon, 40)}
-      <div class="pt-title"><b>${C.name}</b><div class="pt-tags">${peDiff(g.diff)}${g.record ? peRec() : ''}${g.fixed ? peFixed() : ''}<span class="small-dim">${g.size} jogadores</span></div></div>
+      <div class="pt-title"><b>${C.name}</b><div class="pt-tags">${peDiff(g.diff)}${g.record ? peRec() : ''}${g.fixed ? peFixed() : ''}${fits ? '<span class="df match" title="Seu horário (Procurando PT) combina com o desta PT">HORÁRIO COMBINA</span>' : ''}<span class="small-dim">${g.size} jogadores</span></div></div>
       <span class="pt-state ${open ? 'open' : 'closed'}">${open ? `${open} vaga${open > 1 ? 's' : ''}` : 'CHEIA'}</span>
     </header>
+    <div class="av-row"><span class="small-dim">Horários</span><span class="av-chips">${peAvailChips(g.avail)}</span></div>
     ${g.note ? `<div class="pt-note">“${esc(g.note)}”</div>` : ''}
     ${bosses}
     <div class="pt-slots">${slots}</div>
@@ -76,17 +96,19 @@ function lfgCard(l){
   const me = peMe();
   const mine = isAdmin || peSame(l.nick, me);
   const targets = pveG.filter(g => g.content === l.content && peSame(g.owner, me) && g.slots.some(s => !s.nick) && !g.slots.some(s => peSame(s.nick, l.nick)) && !pveI.some(i => i.group === g.id && peSame(i.to, l.nick)));
-  const tname = (g) => `${C.name} ${PVE_DIFF[g.diff]}${g.record ? ' (record)' : ''}`;
+  const tname = (g) => `${C.name} ${PVE_DIFF[g.diff]}${g.record ? ' (record)' : ''}${peOverlap(l.avail, g.avail) ? ' · horário combina' : ''}`;
+  const fitsL = peSame(l.nick, me) ? false : pveG.some(g => peSame(g.owner, me) && g.content === l.content && peOverlap(l.avail, g.avail));
   const inv = peSame(l.nick, me) ? '' : targets.length === 1
     ? `<button class="mini-btn on" type="button" data-act="inv" data-l="${l.nick ? esc(l.nick) : ''}" data-g="${targets[0].id}">Convidar para a minha PT</button>`
     : targets.length > 1 ? `<select data-act="invsel" data-l="${esc(l.nick)}"><option value="">Convidar para…</option>${targets.map(g => `<option value="${g.id}">${esc(tname(g))}</option>`).join('')}</select>` : '';
   return `<section class="pt-card lfg${peSame(l.nick, me) ? ' mine' : ''}">
     <header class="pt-head">${avatarHTML(l.nick, 40)}
-      <div class="pt-title"><b>${esc(l.nick)}</b><div class="pt-tags">${pveIcon(C.icon, 20)}<span>${C.name}</span>${peDiff(l.diff)}${l.record ? peRec() : ''}</div></div>
+      <div class="pt-title"><b>${esc(l.nick)}</b><div class="pt-tags">${pveIcon(C.icon, 20)}<span>${C.name}</span>${peDiff(l.diff)}${l.record ? peRec() : ''}${fitsL ? '<span class="df match" title="O horário dele combina com o da sua PT">HORÁRIO COMBINA</span>' : ''}</div></div>
       <span class="small-dim">${peAgo(l.ts)}</span>
     </header>
     <div class="lfg-row"><span class="small-dim">Joga de</span><span class="rbadges">${(l.roles || []).length ? l.roles.map(peRole).join('') : '<span class="small-dim">qualquer função</span>'}</span></div>
     <div class="lfg-row"><span class="small-dim">Personagens</span>${peFaces(l.chars, 28)}</div>
+    <div class="av-row"><span class="small-dim">Horários</span><span class="av-chips">${peAvailChips(l.avail)}</span></div>
     ${l.note ? `<div class="pt-note">“${esc(l.note)}”</div>` : ''}
     <footer class="pt-foot"><span class="pt-btns">${inv}</span>
       <span class="pt-btns">${mine ? `<button class="mini-btn" type="button" data-act="editl" data-l="${l.id}">Editar</button><button class="mini-btn" type="button" data-act="dell" data-l="${l.id}">Remover</button>` : ''}</span></footer>
@@ -104,16 +126,17 @@ function inviteBanner(i){
 function renderPve(){
   if(uiMode !== 'app' || !tabPve) return;
   const me = peMe();
-  const okF = (x) => (!pvf.content || x.content === pvf.content) && (!pvf.diff || x.diff === pvf.diff) && (!pvf.record || x.record);
+  const okF = (x) => (!pvf.content || x.content === pvf.content) && (!pvf.diff || x.diff === pvf.diff) && (!pvf.record || x.record) && (!pvf.day || peHasDay(x.avail, Number(pvf.day) - 1));
   const gs = pveG.filter(okF).sort((a, b) => (b.slots.some(s => !s.nick) - a.slots.some(s => !s.nick)) || b.ts - a.ts);
   const ls = pveL.filter(okF).sort((a, b) => b.ts - a.ts);
   const sel = (key, v, label) => `<option value="${v}"${pvf[key] === v ? ' selected' : ''}>${label}</option>`;
-  const hasF = pvf.content || pvf.diff || pvf.record;
+  const hasF = pvf.content || pvf.diff || pvf.record || pvf.day;
   const myInv = pveI.filter(i => peSame(i.to, me));
   tabPve.innerHTML = `<div class="an-top">
       <div class="filters">
         <select data-act="fc" class="${pvf.content ? 'active' : ''}">${sel('content', '', 'Todos os conteúdos')}${PVE_IDS.map(k => sel('content', k, PVE[k].name)).join('')}</select>
         <select data-act="fd" class="${pvf.diff ? 'active' : ''}">${sel('diff', '', 'Qualquer dificuldade')}${Object.keys(PVE_DIFF).map(k => sel('diff', k, PVE_DIFF[k])).join('')}</select>
+        <select data-act="fday" class="${pvf.day ? 'active' : ''}"><option value="">Qualquer dia</option>${PE_DAYS.map((n, i) => `<option value="${i + 1}"${pvf.day === String(i + 1) ? ' selected' : ''}>${n}</option>`).join('')}</select>
         <label class="chk-inline"><input type="checkbox" data-act="fr"${pvf.record ? ' checked' : ''}> Só record</label>
         ${hasF ? '<button class="mini-btn" type="button" data-act="clear">Limpar filtros</button>' : ''}
       </div>
@@ -133,7 +156,7 @@ tabPve.addEventListener('click', (e) => {
   if(!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
   const d = el.dataset;
   switch(d.act){
-    case 'clear': pvf.content = ''; pvf.diff = ''; pvf.record = false; break;
+    case 'clear': pvf.content = ''; pvf.diff = ''; pvf.record = false; pvf.day = ''; break;
     case 'newg': return openPveForm('pt', null);
     case 'newl': return openPveForm('lfg', null);
     case 'editg': return openPveForm('pt', pveG.find(g => g.id === d.g));
@@ -164,6 +187,7 @@ tabPve.addEventListener('change', (e) => {
     case 'fc': pvf.content = el.value; break;
     case 'fd': pvf.diff = el.value; break;
     case 'fr': pvf.record = el.checked; break;
+    case 'fday': pvf.day = el.value; break;
     case 'invsel': if(el.value){ send({t: 'pve_invite', group: el.value, to: el.dataset.l}); showBanner('Convite enviado.'); } return;
     default: return;
   }
@@ -191,13 +215,13 @@ function openPveForm(type, rec){
   if(type === 'pt'){
     const content = rec ? rec.content : (pvf.content || 'enies');
     const C = PVE[content];
-    pveForm = rec ? {type, id: rec.id, content, diff: rec.diff, size: rec.size, record: !!rec.record, fixed: !!rec.fixed, note: rec.note || '', bosses: [...(rec.bossesDone || [])], mySlot: 0, chars: []}
-      : {type, id: '', content, diff: C.diffs[C.diffs.length - 1] === 'hard' && C.diffs.includes('elite') ? 'elite' : C.diffs[0], size: C.sizes[0], record: false, fixed: false, note: '', bosses: [], mySlot: 0, chars: []};
+    pveForm = rec ? {type, id: rec.id, content, diff: rec.diff, size: rec.size, record: !!rec.record, fixed: !!rec.fixed, avail: JSON.parse(JSON.stringify(rec.avail || [])), note: rec.note || '', bosses: [...(rec.bossesDone || [])], mySlot: 0, chars: []}
+      : {type, id: '', content, diff: C.diffs[C.diffs.length - 1] === 'hard' && C.diffs.includes('elite') ? 'elite' : C.diffs[0], size: C.sizes[0], record: false, fixed: false, avail: [], note: '', bosses: [], mySlot: 0, chars: []};
   } else {
     const content = rec ? rec.content : (pvf.content || 'enies');
     const C = PVE[content];
-    pveForm = rec ? {type, id: rec.id, content, diff: rec.diff, record: !!rec.record, roles: [...(rec.roles || [])], chars: [...(rec.chars || [])].slice(0, 6), note: rec.note || ''}
-      : {type, id: '', content, diff: C.diffs.includes('elite') ? 'elite' : C.diffs[0], record: false, roles: [], chars: [], note: ''};
+    pveForm = rec ? {type, id: rec.id, content, diff: rec.diff, record: !!rec.record, roles: [...(rec.roles || [])], chars: [...(rec.chars || [])].slice(0, 6), avail: JSON.parse(JSON.stringify(rec.avail || [])), note: rec.note || ''}
+      : {type, id: '', content, diff: C.diffs.includes('elite') ? 'elite' : C.diffs[0], record: false, roles: [], chars: [], avail: [], note: ''};
   }
   if(!pveForm.chars.length || pveForm.id === '' || type === 'lfg') peFit(pveForm);
   if(type === 'pt' && pveForm.id) pveForm.chars = [];
@@ -241,8 +265,9 @@ function renderPveForm(){
         ${f.id ? '' : `${f.content === 'rush' ? '' : `<label class="f" for="peMy" style="margin-top:12px">Sua função na PT</label>
           <select class="nick-input" id="peMy">${pveSlotRoles(f.content, f.size).map((r, i) => `<option value="${i}"${i === f.mySlot ? ' selected' : ''}>${PVE_ROLE_LABEL[r]}${r === 'any' ? ' (qualquer DPS)' : ''}</option>`).join('')}</select>`}
           ${peCharsHTML(f)}`}
+        ${peAvailHTML(f, 'Quando vamos jogar')}
         <label class="f" for="peNote" style="margin-top:12px">Observação (opcional)</label>
-        <input class="nick-input" id="peNote" type="text" maxlength="120" value="${esc(f.note)}" placeholder="ex.: hoje às 21h, só quem já fez o Hard">`;
+        <input class="nick-input" id="peNote" type="text" maxlength="120" value="${esc(f.note)}" placeholder="ex.: só quem já fez o Hard">`;
     } else {
       body = `<h3>${f.id ? 'Editar pedido' : 'Procurar PT'}</h3>
         <label class="f" for="peCont">Conteúdo</label>
@@ -251,14 +276,19 @@ function renderPveForm(){
         <label class="f" style="margin-top:12px">Funções que você joga</label>
         <div class="rbadges peroles">${['tank', 'support', 'ranged', 'melee'].map(r => `<button type="button" class="rchip" data-role="${r}" data-on="${f.roles.includes(r)}" style="--c:${ROLE_BY_ID[r].color}">${PVE_ROLE_LABEL[r]}</button>`).join('')}</div>
         ${peCharsHTML(f)}
+        ${peAvailHTML(f, 'Quando posso jogar')}
         <label class="f" for="peNote" style="margin-top:12px">Observação (opcional)</label>
-        <input class="nick-input" id="peNote" type="text" maxlength="120" value="${esc(f.note)}" placeholder="ex.: tenho horário só à noite">`;
+        <input class="nick-input" id="peNote" type="text" maxlength="120" value="${esc(f.note)}" placeholder="ex.: prefiro quem tem experiência">`;
     }
   }
   openModal(`${body}<p class="form-err hidden" id="peErr"></p>
     <div class="modal-actions"><button class="primary-btn" id="peSave" type="button">${f.type === 'join' ? 'Entrar' : 'Salvar'}</button><button class="ghost-btn" id="peCancel" type="button">Cancelar</button></div>`, true);
   const box = $('modalBox');
-  box.addEventListener('input', (e) => { if(e.target.id === 'peNote') f.note = e.target.value; });
+  box.addEventListener('input', (e) => {
+    const t = e.target;
+    if(t.id === 'peNote') f.note = t.value;
+    else if(t.dataset && t.dataset.at){ f.avail[Number(t.dataset.b)][t.dataset.at] = t.value; }
+  });
   box.addEventListener('change', (e) => {
     const t = e.target;
     if(t.id === 'peCont'){ const C = PVE[t.value]; f.content = t.value; f.diff = C.diffs.includes(f.diff) ? f.diff : (C.diffs.includes('elite') ? 'elite' : C.diffs[0]); f.size = C.sizes.includes(f.size) ? f.size : C.sizes[0]; f.bosses = []; f.fixed = false; f.mySlot = 0; if(!(C.record && f.diff === 'hard')) f.record = false; peFit(f); renderPveForm(); }
@@ -270,6 +300,10 @@ function renderPveForm(){
   });
   box.addEventListener('click', (e) => {
     const t = e.target;
+    const ad = t.closest('[data-ad]'); if(ad){ const b = f.avail[Number(ad.dataset.b)], d = Number(ad.dataset.ad); b.days = b.days.includes(d) ? b.days.filter(x => x !== d) : [...b.days, d].sort((x, y) => x - y); ad.setAttribute('aria-pressed', String(b.days.includes(d))); return; }
+    const pre = t.closest('[data-apre]'); if(pre){ const b = f.avail[Number(pre.dataset.b)]; b.days = {all: [0, 1, 2, 3, 4, 5, 6], util: [0, 1, 2, 3, 4], fds: [5, 6]}[pre.dataset.apre]; renderPveForm(); return; }
+    if(t.closest('[data-aadd]')){ if(f.avail.length < 7){ f.avail.push({days: [], from: '20:00', to: '23:00'}); renderPveForm(); } return; }
+    const rm = t.closest('[data-arm]'); if(rm){ f.avail.splice(Number(rm.dataset.arm), 1); renderPveForm(); return; }
     const sz = t.closest('[data-size]'); if(sz && !sz.disabled){ f.size = Number(sz.dataset.size); f.mySlot = 0; renderPveForm(); return; }
     const bd = t.closest('[data-bd]'); if(bd){ const b = bd.dataset.bd; f.bosses = f.bosses.includes(b) ? f.bosses.filter(x => x !== b) : [...f.bosses, b]; renderPveForm(); return; }
     const rc = t.closest('[data-role]'); if(rc){ const r = rc.dataset.role; f.roles = f.roles.includes(r) ? f.roles.filter(x => x !== r) : [...f.roles, r]; rc.dataset.on = String(f.roles.includes(r)); return; }
@@ -278,6 +312,16 @@ function renderPveForm(){
     if(id === 'peCancel'){ closePicker(); closeModal(); pveForm = null; }
     else if(id === 'peSave') peSave();
   });
+}
+function peAvailHTML(f, title){
+  return `<div class="sec-head" style="margin-top:12px"><span>${title} <span class="small-dim">(horário de Brasília, opcional)</span></span></div>
+    <div class="av-ed">${f.avail.map((b, i) => `<div class="av-block">
+        <div class="av-days">${PE_DAYS.map((n, d) => `<button type="button" class="rchip av-d" data-ad="${d}" data-b="${i}" aria-pressed="${b.days.includes(d)}">${n}</button>`).join('')}</div>
+        <div class="av-times"><input type="time" class="nick-input" data-at="from" data-b="${i}" value="${b.from}"> <span class="small-dim">até</span> <input type="time" class="nick-input" data-at="to" data-b="${i}" value="${b.to}">
+          <span class="av-pre"><button type="button" class="mini-btn" data-apre="util" data-b="${i}">Seg–Sex</button><button type="button" class="mini-btn" data-apre="fds" data-b="${i}">Fim de semana</button><button type="button" class="mini-btn" data-apre="all" data-b="${i}">Todos</button></span>
+          <button type="button" class="mini-btn" data-arm="${i}" title="Remover este horário">&times;</button></div>
+      </div>`).join('')}
+      ${f.avail.length < 7 ? '<button type="button" class="mini-btn on" data-aadd="1">+ Adicionar horário</button>' : ''}</div>`;
 }
 function pePick(i){
   const f = pveForm;
@@ -289,17 +333,18 @@ function peSave(){
   const f = pveForm;
   const chars = f.chars.filter(Boolean);
   let msg;
+  if(f.type !== 'join' && !peAvOk(f.avail)){ const el = $('peErr'); el.textContent = 'Confira os horários: marque os dias e use um início menor que o fim (o horário vale no mesmo dia; para passar da meia-noite, crie outro bloco).'; el.classList.remove('hidden'); return; }
   if(f.type === 'join'){
     msg = {t: f.inv ? 'pve_invite_reply' : 'pve_join', slot: f.slot, chars};
     if(f.inv){ msg.id = f.inv; msg.accept = true; } else msg.id = f.group;
     if(!send(msg)) return;
     if(f.inv){ closePicker(); closeModal(); pveForm = null; showBanner('Você entrou na PT.'); return; }
   } else if(f.type === 'pt'){
-    const group = {id: f.id || undefined, content: f.content, diff: f.diff, size: f.size, record: f.record, fixed: f.fixed, note: f.note.trim(), bossesDone: f.bosses};
+    const group = {id: f.id || undefined, content: f.content, diff: f.diff, size: f.size, record: f.record, fixed: f.fixed, avail: f.avail, note: f.note.trim(), bossesDone: f.bosses};
     if(!f.id){ group.mySlot = f.mySlot; group.chars = chars; }
     if(!send({t: 'pve_group_save', group})) return;
   } else {
-    if(!send({t: 'pve_lfg_save', lfg: {id: f.id || undefined, content: f.content, diff: f.diff, record: f.record, roles: f.roles, chars, note: f.note.trim()}})) return;
+    if(!send({t: 'pve_lfg_save', lfg: {id: f.id || undefined, content: f.content, diff: f.diff, record: f.record, roles: f.roles, chars, avail: f.avail, note: f.note.trim()}})) return;
   }
   const b = $('peSave'); if(b) b.disabled = true;
 }

@@ -274,6 +274,19 @@ const pveChars = (arr, max) => {
   }
   return out;
 };
+// disponibilidade: até 7 blocos {days:[0..6 (0 = segunda)], from:"HH:MM", to:"HH:MM"} (horário de Brasília, no mesmo dia: from < to)
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+function pveAvail(arr) {
+  const out = [];
+  for (const b of Array.isArray(arr) ? arr : []) {
+    if (out.length >= 7 || !b || typeof b !== "object") continue;
+    const days = [...new Set((Array.isArray(b.days) ? b.days : []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+    const from = String(b.from ?? ""), to = String(b.to ?? "");
+    if (!days.length || !TIME_RE.test(from) || !TIME_RE.test(to) || from >= to) continue;
+    out.push({ days, from, to });
+  }
+  return out;
+}
 const pveId = (now) => now.toString(36) + Math.floor(Math.random() * 46656).toString(36).padStart(3, "0");
 const sameNick = (x, y) => !!x && !!y && String(x).toLowerCase() === String(y).toLowerCase();
 
@@ -976,7 +989,7 @@ export class Room extends DurableObject {
           if (p.groups.length >= 100 || p.groups.filter((x) => sameNick(x.owner, me)).length >= 3) return err("limite");
           const roles = pveSlotRoles(String(raw.content), size);
           const idx = Number.isInteger(raw.mySlot) && raw.mySlot >= 0 && raw.mySlot < roles.length ? raw.mySlot : 0;
-          g = { id: pveId(now), content: String(raw.content), diff, record: false, fixed: false, size, bossesDone: [], note: "", owner: me, ts: now,
+          g = { id: pveId(now), content: String(raw.content), diff, record: false, fixed: false, avail: pveAvail(raw.avail), size, bossesDone: [], note: "", owner: me, ts: now,
             slots: roles.map((role) => ({ role, nick: "", chars: [] })) };
           g.slots[idx] = { role: roles[idx], nick: me, chars: pveChars(raw.chars, pveMaxChars(g.content, diff)) };
           p.groups.push(g);
@@ -989,6 +1002,7 @@ export class Room extends DurableObject {
         }
         g.record = !!(C.record && g.diff === "hard" && raw.record);
         g.bossesDone = C.bosses.filter((b) => (Array.isArray(raw.bossesDone) ? raw.bossesDone : []).includes(b));
+        if (raw.avail !== undefined) g.avail = pveAvail(raw.avail);
         g.fixed = !!raw.fixed;
         g.note = cleanText(raw.note, 120);
         g.ts = now;
@@ -1082,7 +1096,7 @@ export class Room extends DurableObject {
         Object.assign(l, {
           content: String(raw.content), diff, record: !!(C.record && diff === "hard" && raw.record),
           roles: PVE_ROLES.filter((r) => (Array.isArray(raw.roles) ? raw.roles : []).includes(r)),
-          chars: pveChars(raw.chars, 8), note: cleanText(raw.note, 120), ts: now,
+          chars: pveChars(raw.chars, 8), avail: pveAvail(raw.avail), note: cleanText(raw.note, 120), ts: now,
         });
         await this.savePve();
         ws.send(JSON.stringify({ t: "pve_saved", id: l.id }));
